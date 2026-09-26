@@ -189,6 +189,41 @@
             background: #1d4ed8;
         }
 
+        .card-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .edit-button,
+        .delete-button {
+            border: none;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .edit-button {
+            background: #e5e7eb;
+            color: #111827;
+        }
+
+        .edit-button:hover {
+            background: #d1d5db;
+        }
+
+        .delete-button {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+
+        .delete-button:hover {
+            background: #fecaca;
+        }
+
         .message {
             background: white;
             padding: 30px;
@@ -318,7 +353,7 @@
 
                 allResources = await response.json();
 
-                displayResources(allResources);
+                applySearch();
 
             } catch (error) {
                 document.getElementById("resources").innerHTML = `
@@ -329,6 +364,22 @@
 
                 document.getElementById("resourceCount").textContent = "Error";
             }
+        }
+
+        function applySearch() {
+            const keyword = document
+                .getElementById("searchInput")
+                .value
+                .toLowerCase()
+                .trim();
+
+            const filteredResources = allResources.filter(resource =>
+                resource.subject.toLowerCase().includes(keyword) ||
+                resource.title.toLowerCase().includes(keyword) ||
+                resource.resource_type.toLowerCase().includes(keyword)
+            );
+
+            displayResources(filteredResources);
         }
 
         function displayResources(resources) {
@@ -372,6 +423,24 @@
                         Open Resource
                     </a>
 
+                    <div class="card-actions">
+
+                        <button
+                            class="edit-button"
+                            onclick="editResource(${resource.id})"
+                        >
+                            Edit
+                        </button>
+
+                        <button
+                            class="delete-button"
+                            onclick="deleteResource(${resource.id})"
+                        >
+                            Delete
+                        </button>
+
+                    </div>
+
                 </article>
             `).join("");
         }
@@ -391,18 +460,7 @@
 
         document
             .getElementById("searchInput")
-            .addEventListener("input", function () {
-
-                const keyword = this.value.toLowerCase().trim();
-
-                const filteredResources = allResources.filter(resource =>
-                    resource.subject.toLowerCase().includes(keyword) ||
-                    resource.title.toLowerCase().includes(keyword) ||
-                    resource.resource_type.toLowerCase().includes(keyword)
-                );
-
-                displayResources(filteredResources);
-            });
+            .addEventListener("input", applySearch);
 
         document
             .getElementById("resourceForm")
@@ -446,6 +504,123 @@
                     message.textContent = error.message;
                 }
             });
+
+        async function deleteResource(resourceId) {
+            const resource = allResources.find(
+                item => item.id === resourceId
+            );
+
+            if (!resource) {
+                return;
+            }
+
+            const confirmed = confirm(
+                `Delete "${resource.title}"?`
+            );
+
+            if (!confirmed) {
+                return;
+            }
+
+            try {
+                const response = await fetch(
+                    `/resources/${resourceId}`,
+                    {
+                        method: "DELETE"
+                    }
+                );
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(
+                        result.detail || "Failed to delete resource"
+                    );
+                }
+
+                await loadResources();
+
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        async function editResource(resourceId) {
+            const resource = allResources.find(
+                item => item.id === resourceId
+            );
+
+            if (!resource) {
+                return;
+            }
+
+            const subject = prompt(
+                "Subject:",
+                resource.subject
+            );
+
+            if (subject === null) {
+                return;
+            }
+
+            const title = prompt(
+                "Title:",
+                resource.title
+            );
+
+            if (title === null) {
+                return;
+            }
+
+            const resourceType = prompt(
+                "Type:",
+                resource.resource_type
+            );
+
+            if (resourceType === null) {
+                return;
+            }
+
+            const link = prompt(
+                "Link:",
+                resource.link
+            );
+
+            if (link === null) {
+                return;
+            }
+
+            try {
+                const response = await fetch(
+                    `/resources/${resourceId}`,
+                    {
+                        method: "PUT",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            subject: subject.trim(),
+                            title: title.trim(),
+                            resource_type: resourceType.trim(),
+                            link: link.trim()
+                        })
+                    }
+                );
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(
+                        result.detail || "Failed to update resource"
+                    );
+                }
+
+                await loadResources();
+
+            } catch (error) {
+                alert(error.message);
+            }
+        }
 
         loadResources();
     </script>
