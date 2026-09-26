@@ -406,6 +406,13 @@ def home(request: Request):
     )
 
 
+@app.get("/health")
+def health_check():
+    return {
+        "status": "ok"
+    }
+
+
 @app.get("/resources")
 def get_resources(
     favorite: bool = False,
