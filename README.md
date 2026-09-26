@@ -22,6 +22,7 @@ Each resource can include a subject, title, resource type, link, and an optional
 - Input validation for required fields
 - HTTP/HTTPS URL validation
 - REST API built with FastAPI
+- API health check
 - SQLite database for persistent storage
 - Automatic database migration for new fields
 - Jinja2-powered web interface
@@ -45,7 +46,8 @@ Each resource can include a subject, title, resource type, link, and an optional
 | Method | Endpoint | Purpose |
 |---|---|---|
 | GET | `/` | Web interface |
-| GET | `/resources` | Get all resources |
+| GET | `/health` | API health check |
+| GET | `/resources` | Get resources with optional filters |
 | POST | `/resources` | Create a resource |
 | GET | `/resources/{resource_id}` | Get one resource |
 | PUT | `/resources/{resource_id}` | Update a resource |
