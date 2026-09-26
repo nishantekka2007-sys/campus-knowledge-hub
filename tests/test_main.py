@@ -217,6 +217,7 @@ def test_create_resource_api(tmp_path, monkeypatch):
             "title": "Java Basics",
             "resource_type": "Notes",
             "link": "https://example.com/java",
+            "description": "Introduction to Java programming.",
         },
     )
 
@@ -229,6 +230,9 @@ def test_create_resource_api(tmp_path, monkeypatch):
 
     assert get_response.status_code == 200
     assert get_response.json()["title"] == "Java Basics"
+    assert get_response.json()["description"] == (
+        "Introduction to Java programming."
+    )
 
 
 def test_update_resource_api(tmp_path, monkeypatch):
@@ -241,6 +245,7 @@ def test_update_resource_api(tmp_path, monkeypatch):
             "title": "Python Basics",
             "resource_type": "Notes",
             "link": "https://example.com",
+            "description": "Basic Python concepts.",
         },
     )
 
@@ -253,6 +258,7 @@ def test_update_resource_api(tmp_path, monkeypatch):
             "title": "Python Fundamentals",
             "resource_type": "Course",
             "link": "https://example.com/python",
+            "description": "Updated Python fundamentals.",
         },
     )
 
@@ -263,6 +269,9 @@ def test_update_resource_api(tmp_path, monkeypatch):
     assert get_response.status_code == 200
     assert get_response.json()["title"] == "Python Fundamentals"
     assert get_response.json()["resource_type"] == "Course"
+    assert get_response.json()["description"] == (
+        "Updated Python fundamentals."
+    )
 
 
 def test_delete_resource_api(tmp_path, monkeypatch):
@@ -275,6 +284,7 @@ def test_delete_resource_api(tmp_path, monkeypatch):
             "title": "Java Basics",
             "resource_type": "Notes",
             "link": "https://example.com/java",
+            "description": "Java programming notes.",
         },
     )
 
@@ -303,6 +313,7 @@ def test_search_resource_api(tmp_path, monkeypatch):
             "title": "FastAPI Basics",
             "resource_type": "Course",
             "link": "https://example.com/fastapi",
+            "description": "Learn FastAPI fundamentals.",
         },
     )
 
@@ -313,6 +324,7 @@ def test_search_resource_api(tmp_path, monkeypatch):
             "title": "Java Basics",
             "resource_type": "Notes",
             "link": "https://example.com/java",
+            "description": "Java programming notes.",
         },
     )
 
@@ -326,6 +338,48 @@ def test_search_resource_api(tmp_path, monkeypatch):
 
     assert len(results) == 1
     assert results[0]["title"] == "FastAPI Basics"
+
+
+def test_search_resource_api_by_description(tmp_path, monkeypatch):
+    setup_test_database(tmp_path, monkeypatch)
+
+    client.post(
+        "/resources",
+        json={
+            "subject": "Java",
+            "title": "Java Basics",
+            "resource_type": "Course",
+            "link": "https://example.com/java",
+            "description": (
+                "Introduction to object-oriented programming."
+            ),
+        },
+    )
+
+    client.post(
+        "/resources",
+        json={
+            "subject": "Python",
+            "title": "Python Basics",
+            "resource_type": "Notes",
+            "link": "https://example.com/python",
+            "description": "Python syntax and fundamentals.",
+        },
+    )
+
+    response = client.get(
+        "/resources/search/object-oriented"
+    )
+
+    assert response.status_code == 200
+
+    results = response.json()
+
+    assert len(results) == 1
+    assert results[0]["title"] == "Java Basics"
+    assert results[0]["description"] == (
+        "Introduction to object-oriented programming."
+    )
 
 
 def test_not_found_resource_api(tmp_path, monkeypatch):
