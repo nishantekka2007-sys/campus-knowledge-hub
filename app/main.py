@@ -129,6 +129,49 @@ def search_resources():
         print(f"Link: {link}")
 
 
+def delete_resource():
+    print("\n--- Delete Resource ---")
+
+    resource_id = input("Enter resource ID: ").strip()
+
+    if not resource_id.isdigit():
+        print("Please enter a valid resource ID.")
+        return
+
+    connection = connect_database()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        "SELECT title FROM resources WHERE id = ?",
+        (resource_id,)
+    )
+
+    resource = cursor.fetchone()
+
+    if resource is None:
+        print("Resource not found.")
+        connection.close()
+        return
+
+    confirm = input(
+        f'Delete "{resource[0]}"? (y/n): '
+    ).strip().lower()
+
+    if confirm == "y":
+        cursor.execute(
+            "DELETE FROM resources WHERE id = ?",
+            (resource_id,)
+        )
+
+        connection.commit()
+        print("Resource deleted successfully!")
+
+    else:
+        print("Deletion cancelled.")
+
+    connection.close()
+
+
 def main():
     create_table()
 
@@ -140,7 +183,8 @@ def main():
         print("1. Add Resource")
         print("2. View Resources")
         print("3. Search Resources")
-        print("4. Exit")
+        print("4. Delete Resource")
+        print("5. Exit")
 
         choice = input("\nEnter your choice: ").strip()
 
@@ -154,6 +198,9 @@ def main():
             search_resources()
 
         elif choice == "4":
+            delete_resource()
+
+        elif choice == "5":
             print("\nGoodbye!")
             break
 
