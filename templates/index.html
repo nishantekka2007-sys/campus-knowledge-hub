@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campus Knowledge Hub</title>
+</head>
+<body>
+
+    <h1>Campus Knowledge Hub</h1>
+
+    <p>Find and manage college learning resources.</p>
+
+    <h2>Resources</h2>
+
+    <div id="resources">
+        Loading resources...
+    </div>
+
+    <script>
+        async function loadResources() {
+            const response = await fetch("/resources");
+            const resources = await response.json();
+
+            const container = document.getElementById("resources");
+
+            if (resources.length === 0) {
+                container.innerHTML = "<p>No resources available.</p>";
+                return;
+            }
+
+            container.innerHTML = resources.map(resource => `
+                <div>
+                    <h3>${resource.title}</h3>
+                    <p>Subject: ${resource.subject}</p>
+                    <p>Type: ${resource.resource_type}</p>
+                    <a href="${resource.link}" target="_blank">
+                        Open Resource
+                    </a>
+                </div>
+                <hr>
+            `).join("");
+        }
+
+        loadResources();
+    </script>
+
+</body>
+</html>
+
+
