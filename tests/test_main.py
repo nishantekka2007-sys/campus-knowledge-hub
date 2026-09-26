@@ -233,6 +233,7 @@ def test_create_resource_api(tmp_path, monkeypatch):
     assert get_response.json()["description"] == (
         "Introduction to Java programming."
     )
+    assert get_response.json()["is_favorite"] is False
 
 
 def test_update_resource_api(tmp_path, monkeypatch):
@@ -356,6 +357,58 @@ def test_toggle_favorite_api(tmp_path, monkeypatch):
 
     assert get_response.status_code == 200
     assert get_response.json()["is_favorite"] is False
+
+
+def test_get_favorite_resources_api(tmp_path, monkeypatch):
+    setup_test_database(tmp_path, monkeypatch)
+
+    first_response = client.post(
+        "/resources",
+        json={
+            "subject": "Java",
+            "title": "Java Basics",
+            "resource_type": "Course",
+            "link": "https://example.com/java",
+            "description": "Java programming.",
+        },
+    )
+
+    second_response = client.post(
+        "/resources",
+        json={
+            "subject": "Python",
+            "title": "Python Basics",
+            "resource_type": "Notes",
+            "link": "https://example.com/python",
+            "description": "Python programming.",
+        },
+    )
+
+    assert first_response.status_code == 201
+    assert second_response.status_code == 201
+
+    first_id = first_response.json()["id"]
+    second_id = second_response.json()["id"]
+
+    favorite_response = client.patch(
+        f"/resources/{first_id}/favorite"
+    )
+
+    assert favorite_response.status_code == 200
+    assert favorite_response.json()["is_favorite"] is True
+
+    response = client.get("/resources?favorite=true")
+
+    assert response.status_code == 200
+
+    results = response.json()
+
+    assert len(results) == 1
+    assert results[0]["id"] == first_id
+    assert results[0]["title"] == "Java Basics"
+    assert results[0]["is_favorite"] is True
+
+    assert results[0]["id"] != second_id
 
 
 def test_delete_resource_api(tmp_path, monkeypatch):
