@@ -69,7 +69,8 @@ def create_table():
             title TEXT NOT NULL,
             resource_type TEXT NOT NULL,
             link TEXT NOT NULL,
-            description TEXT NOT NULL DEFAULT ''
+            description TEXT NOT NULL DEFAULT '',
+            is_favorite INTEGER NOT NULL DEFAULT 0
         )
         """
     )
@@ -82,6 +83,14 @@ def create_table():
             """
             ALTER TABLE resources
             ADD COLUMN description TEXT NOT NULL DEFAULT ''
+            """
+        )
+
+    if "is_favorite" not in columns:
+        cursor.execute(
+            """
+            ALTER TABLE resources
+            ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0
             """
         )
 
@@ -153,7 +162,8 @@ def view_resources():
             title,
             resource_type,
             link,
-            description
+            description,
+            is_favorite
         FROM resources
         ORDER BY id
         """
@@ -177,6 +187,7 @@ def view_resources():
             resource_type,
             link,
             description,
+            is_favorite,
         ) = resource
 
         print(f"\nResource #{resource_id}")
@@ -184,7 +195,12 @@ def view_resources():
         print(f"Title: {title}")
         print(f"Type: {resource_type}")
         print(f"Link: {link}")
-        print(f"Description: {description or 'No description provided.'}")
+        print(
+            f"Description: {description or 'No description provided.'}"
+        )
+        print(
+            f"Favorite: {'Yes' if is_favorite else 'No'}"
+        )
 
 
 def search_resources():
@@ -205,7 +221,8 @@ def search_resources():
             title,
             resource_type,
             link,
-            description
+            description,
+            is_favorite
         FROM resources
         WHERE subject LIKE ?
            OR title LIKE ?
@@ -239,6 +256,7 @@ def search_resources():
             resource_type,
             link,
             description,
+            is_favorite,
         ) = resource
 
         print(f"\nResource #{resource_id}")
@@ -246,7 +264,12 @@ def search_resources():
         print(f"Title: {title}")
         print(f"Type: {resource_type}")
         print(f"Link: {link}")
-        print(f"Description: {description or 'No description provided.'}")
+        print(
+            f"Description: {description or 'No description provided.'}"
+        )
+        print(
+            f"Favorite: {'Yes' if is_favorite else 'No'}"
+        )
 
 
 def update_resource():
@@ -397,13 +420,19 @@ def get_resources():
             title,
             resource_type,
             link,
-            description
+            description,
+            is_favorite
         FROM resources
         ORDER BY id
         """
     )
 
-    resources = [dict(row) for row in cursor.fetchall()]
+    resources = []
+
+    for row in cursor.fetchall():
+        resource = dict(row)
+        resource["is_favorite"] = bool(resource["is_favorite"])
+        resources.append(resource)
 
     connection.close()
 
@@ -424,7 +453,8 @@ def get_resource(resource_id: int):
             title,
             resource_type,
             link,
-            description
+            description,
+            is_favorite
         FROM resources
         WHERE id = ?
         """,
@@ -441,7 +471,10 @@ def get_resource(resource_id: int):
             detail="Resource not found",
         )
 
-    return dict(resource)
+    result = dict(resource)
+    result["is_favorite"] = bool(result["is_favorite"])
+
+    return result
 
 
 @app.post("/resources", status_code=201)
@@ -532,6 +565,55 @@ def update_resource_api(
     }
 
 
+@app.patch("/resources/{resource_id}/favorite")
+def toggle_favorite(resource_id: int):
+    connection = connect_database()
+    connection.row_factory = sqlite3.Row
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        SELECT id, is_favorite
+        FROM resources
+        WHERE id = ?
+        """,
+        (resource_id,),
+    )
+
+    resource = cursor.fetchone()
+
+    if resource is None:
+        connection.close()
+
+        raise HTTPException(
+            status_code=404,
+            detail="Resource not found",
+        )
+
+    new_status = 0 if resource["is_favorite"] else 1
+
+    cursor.execute(
+        """
+        UPDATE resources
+        SET is_favorite = ?
+        WHERE id = ?
+        """,
+        (
+            new_status,
+            resource_id,
+        ),
+    )
+
+    connection.commit()
+    connection.close()
+
+    return {
+        "message": "Favorite status updated",
+        "id": resource_id,
+        "is_favorite": bool(new_status),
+    }
+
+
 @app.delete("/resources/{resource_id}")
 def delete_resource_api(resource_id: int):
     connection = connect_database()
@@ -553,7 +635,10 @@ def delete_resource_api(resource_id: int):
         )
 
     cursor.execute(
-        "DELETE FROM resources WHERE id = ?",
+        """
+        DELETE FROM resources
+        WHERE id = ?
+        """,
         (resource_id,),
     )
 
@@ -582,7 +667,8 @@ def search_resources_api(keyword: str):
             title,
             resource_type,
             link,
-            description
+            description,
+            is_favorite
         FROM resources
         WHERE subject LIKE ?
            OR title LIKE ?
@@ -598,7 +684,12 @@ def search_resources_api(keyword: str):
         ),
     )
 
-    resources = [dict(row) for row in cursor.fetchall()]
+    resources = []
+
+    for row in cursor.fetchall():
+        resource = dict(row)
+        resource["is_favorite"] = bool(resource["is_favorite"])
+        resources.append(resource)
 
     connection.close()
 
