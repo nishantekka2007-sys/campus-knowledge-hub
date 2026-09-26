@@ -2,8 +2,8 @@ import sqlite3
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel, Field, field_validator
 
 
 DATABASE = "campus.db"
@@ -20,10 +20,20 @@ templates = Jinja2Templates(directory="templates")
 
 
 class Resource(BaseModel):
-    subject: str
-    title: str
-    resource_type: str
-    link: str
+    subject: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    resource_type: str = Field(min_length=1)
+    link: str = Field(min_length=1)
+
+    @field_validator("subject", "title", "resource_type", "link")
+    @classmethod
+    def validate_text(cls, value: str) -> str:
+        value = value.strip()
+
+        if not value:
+            raise ValueError("Field cannot be empty")
+
+        return value
 
 
 def connect_database():
@@ -301,10 +311,10 @@ def create_resource(resource: Resource):
         INSERT INTO resources (subject, title, resource_type, link)
         VALUES (?, ?, ?, ?)
     """, (
-        resource.subject.strip(),
-        resource.title.strip(),
-        resource.resource_type.strip(),
-        resource.link.strip()
+        resource.subject,
+        resource.title,
+        resource.resource_type,
+        resource.link
     ))
 
     resource_id = cursor.lastrowid
@@ -342,10 +352,10 @@ def update_resource_api(resource_id: int, resource: Resource):
             link = ?
         WHERE id = ?
     """, (
-        resource.subject.strip(),
-        resource.title.strip(),
-        resource.resource_type.strip(),
-        resource.link.strip(),
+        resource.subject,
+        resource.title,
+        resource.resource_type,
+        resource.link,
         resource_id
     ))
 
