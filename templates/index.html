@@ -119,7 +119,8 @@
         }
 
         .search-box,
-        .type-filter {
+        .type-filter,
+        .favorite-filter {
             padding: 14px 16px;
             border: 1px solid #d1d5db;
             border-radius: 10px;
@@ -133,13 +134,15 @@
             min-width: 250px;
         }
 
-        .type-filter {
-            min-width: 180px;
+        .type-filter,
+        .favorite-filter {
+            min-width: 160px;
             cursor: pointer;
         }
 
         .search-box:focus,
-        .type-filter:focus {
+        .type-filter:focus,
+        .favorite-filter:focus {
             border-color: #2563eb;
         }
 
@@ -158,6 +161,7 @@
         }
 
         .resource-card {
+            position: relative;
             background: white;
             border: 1px solid #e5e7eb;
             border-radius: 14px;
@@ -175,6 +179,7 @@
             font-size: 22px;
             margin-bottom: 12px;
             color: #111827;
+            padding-right: 10px;
         }
 
         .resource-card p {
@@ -202,6 +207,17 @@
             margin-bottom: 15px;
         }
 
+        .favorite-badge {
+            display: inline-block;
+            margin-left: 8px;
+            color: #92400e;
+            background: #fef3c7;
+            padding: 5px 10px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
         .resource-link {
             display: inline-block;
             margin-top: 15px;
@@ -225,7 +241,8 @@
         }
 
         .edit-button,
-        .delete-button {
+        .delete-button,
+        .favorite-button {
             border: none;
             padding: 10px 14px;
             border-radius: 8px;
@@ -250,6 +267,20 @@
 
         .delete-button:hover {
             background: #fecaca;
+        }
+
+        .favorite-button {
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        .favorite-button:hover {
+            background: #e5e7eb;
+        }
+
+        .favorite-button.active {
+            background: #fef3c7;
+            color: #92400e;
         }
 
         .message {
@@ -291,7 +322,8 @@
             }
 
             .search-box,
-            .type-filter {
+            .type-filter,
+            .favorite-filter {
                 width: 100%;
             }
 
@@ -376,6 +408,11 @@
                 <option value="">All Types</option>
             </select>
 
+            <select id="favoriteFilter" class="favorite-filter">
+                <option value="">All Resources</option>
+                <option value="favorites">Favorites Only</option>
+            </select>
+
             <div class="resource-count" id="resourceCount">
                 Loading...
             </div>
@@ -429,7 +466,8 @@
 
         function updateTypeFilterOptions() {
 
-            const typeFilter = document.getElementById("typeFilter");
+            const typeFilter =
+                document.getElementById("typeFilter");
 
             const currentValue = typeFilter.value;
 
@@ -447,7 +485,8 @@
 
             types.forEach(type => {
 
-                const option = document.createElement("option");
+                const option =
+                    document.createElement("option");
 
                 option.value = type;
                 option.textContent = type;
@@ -475,6 +514,9 @@
                 .toLowerCase()
                 .trim();
 
+            const favoriteFilter =
+                document.getElementById("favoriteFilter").value;
+
             const filteredResources = allResources.filter(resource => {
 
                 const description =
@@ -490,7 +532,15 @@
                     !selectedType ||
                     resource.resource_type.toLowerCase() === selectedType;
 
-                return matchesSearch && matchesType;
+                const matchesFavorite =
+                    favoriteFilter !== "favorites" ||
+                    resource.is_favorite === true;
+
+                return (
+                    matchesSearch &&
+                    matchesType &&
+                    matchesFavorite
+                );
             });
 
             displayResources(filteredResources);
@@ -499,8 +549,11 @@
 
         function displayResources(resources) {
 
-            const container = document.getElementById("resources");
-            const count = document.getElementById("resourceCount");
+            const container =
+                document.getElementById("resources");
+
+            const count =
+                document.getElementById("resourceCount");
 
             count.textContent =
                 `${resources.length} resource${resources.length === 1 ? "" : "s"}`;
@@ -523,6 +576,12 @@
                     <span class="badge">
                         ${escapeHtml(resource.resource_type)}
                     </span>
+
+                    ${
+                        resource.is_favorite
+                            ? `<span class="favorite-badge">★ Favorite</span>`
+                            : ""
+                    }
 
                     <h2>
                         ${escapeHtml(resource.title)}
@@ -554,6 +613,13 @@
                     </a>
 
                     <div class="card-actions">
+
+                        <button
+                            class="favorite-button ${resource.is_favorite ? "active" : ""}"
+                            onclick="toggleFavorite(${resource.id})"
+                        >
+                            ${resource.is_favorite ? "★ Favorited" : "☆ Favorite"}
+                        </button>
 
                         <button
                             class="edit-button"
@@ -604,6 +670,11 @@
 
 
         document
+            .getElementById("favoriteFilter")
+            .addEventListener("change", applyFilters);
+
+
+        document
             .getElementById("resourceForm")
             .addEventListener("submit", async function (event) {
 
@@ -649,7 +720,12 @@
 
                     if (!response.ok) {
                         throw new Error(
-                            result.detail || "Failed to add resource"
+                            Array.isArray(result.detail)
+                                ? result.detail
+                                      .map(error => error.msg)
+                                      .join(", ")
+                                : result.detail ||
+                                  "Failed to add resource"
                         );
                     }
 
@@ -665,6 +741,35 @@
                     message.textContent = error.message;
                 }
             });
+
+
+        async function toggleFavorite(resourceId) {
+
+            try {
+
+                const response = await fetch(
+                    `/resources/${resourceId}/favorite`,
+                    {
+                        method: "PATCH"
+                    }
+                );
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(
+                        result.detail ||
+                        "Failed to update favorite status"
+                    );
+                }
+
+                await loadResources();
+
+            } catch (error) {
+
+                alert(error.message);
+            }
+        }
 
 
         async function deleteResource(resourceId) {
@@ -698,7 +803,8 @@
 
                 if (!response.ok) {
                     throw new Error(
-                        result.detail || "Failed to delete resource"
+                        result.detail ||
+                        "Failed to delete resource"
                     );
                 }
 
@@ -801,7 +907,12 @@
 
                 if (!response.ok) {
                     throw new Error(
-                        result.detail || "Failed to update resource"
+                        Array.isArray(result.detail)
+                            ? result.detail
+                                  .map(error => error.msg)
+                                  .join(", ")
+                            : result.detail ||
+                              "Failed to update resource"
                     );
                 }
 
