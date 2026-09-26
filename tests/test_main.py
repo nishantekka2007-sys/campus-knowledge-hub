@@ -274,6 +274,36 @@ def test_update_resource_api(tmp_path, monkeypatch):
     )
 
 
+def test_update_resource_api_rejects_invalid_url(tmp_path, monkeypatch):
+    setup_test_database(tmp_path, monkeypatch)
+
+    create_response = client.post(
+        "/resources",
+        json={
+            "subject": "Python",
+            "title": "Python Basics",
+            "resource_type": "Notes",
+            "link": "https://example.com",
+            "description": "Basic Python concepts.",
+        },
+    )
+
+    resource_id = create_response.json()["id"]
+
+    response = client.put(
+        f"/resources/{resource_id}",
+        json={
+            "subject": "Python",
+            "title": "Python Fundamentals",
+            "resource_type": "Course",
+            "link": "not-a-valid-url",
+            "description": "Updated Python fundamentals.",
+        },
+    )
+
+    assert response.status_code == 422
+
+
 def test_delete_resource_api(tmp_path, monkeypatch):
     setup_test_database(tmp_path, monkeypatch)
 
