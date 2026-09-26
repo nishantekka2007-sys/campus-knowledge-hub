@@ -1,4 +1,5 @@
 import app.main as main
+
 from fastapi.testclient import TestClient
 
 
@@ -9,6 +10,7 @@ def setup_test_database(tmp_path, monkeypatch):
     database_path = tmp_path / "test.db"
 
     monkeypatch.setattr(main, "DATABASE", str(database_path))
+
     main.create_table()
 
     return database_path
@@ -46,8 +48,8 @@ def test_add_resource(tmp_path, monkeypatch):
             "Python",
             "Python Fundamentals",
             "Notes",
-            "https://example.com"
-        )
+            "https://example.com",
+        ),
     )
 
     connection.commit()
@@ -79,8 +81,8 @@ def test_search_resource(tmp_path, monkeypatch):
             "Python",
             "FastAPI Basics",
             "Course",
-            "https://example.com/fastapi"
-        )
+            "https://example.com/fastapi",
+        ),
     )
 
     connection.commit()
@@ -94,7 +96,7 @@ def test_search_resource(tmp_path, monkeypatch):
            OR title LIKE ?
            OR resource_type LIKE ?
         """,
-        (search_term, search_term, search_term)
+        (search_term, search_term, search_term),
     )
 
     results = cursor.fetchall()
@@ -120,8 +122,8 @@ def test_update_resource(tmp_path, monkeypatch):
             "Python",
             "Python Basics",
             "Notes",
-            "https://example.com"
-        )
+            "https://example.com",
+        ),
     )
 
     connection.commit()
@@ -132,14 +134,14 @@ def test_update_resource(tmp_path, monkeypatch):
         SET title = ?
         WHERE id = ?
         """,
-        ("Python Fundamentals", 1)
+        ("Python Fundamentals", 1),
     )
 
     connection.commit()
 
     cursor.execute(
         "SELECT title FROM resources WHERE id = ?",
-        (1,)
+        (1,),
     )
 
     result = cursor.fetchone()
@@ -164,22 +166,22 @@ def test_delete_resource(tmp_path, monkeypatch):
             "Java",
             "Java Basics",
             "Notes",
-            "https://example.com/java"
-        )
+            "https://example.com/java",
+        ),
     )
 
     connection.commit()
 
     cursor.execute(
         "DELETE FROM resources WHERE id = ?",
-        (1,)
+        (1,),
     )
 
     connection.commit()
 
     cursor.execute(
         "SELECT * FROM resources WHERE id = ?",
-        (1,)
+        (1,),
     )
 
     result = cursor.fetchone()
@@ -214,8 +216,8 @@ def test_create_resource_api(tmp_path, monkeypatch):
             "subject": "Java",
             "title": "Java Basics",
             "resource_type": "Notes",
-            "link": "https://example.com/java"
-        }
+            "link": "https://example.com/java",
+        },
     )
 
     assert response.status_code == 201
@@ -238,8 +240,8 @@ def test_update_resource_api(tmp_path, monkeypatch):
             "subject": "Python",
             "title": "Python Basics",
             "resource_type": "Notes",
-            "link": "https://example.com"
-        }
+            "link": "https://example.com",
+        },
     )
 
     resource_id = create_response.json()["id"]
@@ -250,8 +252,8 @@ def test_update_resource_api(tmp_path, monkeypatch):
             "subject": "Python",
             "title": "Python Fundamentals",
             "resource_type": "Course",
-            "link": "https://example.com/python"
-        }
+            "link": "https://example.com/python",
+        },
     )
 
     assert response.status_code == 200
@@ -272,8 +274,8 @@ def test_delete_resource_api(tmp_path, monkeypatch):
             "subject": "Java",
             "title": "Java Basics",
             "resource_type": "Notes",
-            "link": "https://example.com/java"
-        }
+            "link": "https://example.com/java",
+        },
     )
 
     resource_id = create_response.json()["id"]
@@ -300,8 +302,8 @@ def test_search_resource_api(tmp_path, monkeypatch):
             "subject": "Python",
             "title": "FastAPI Basics",
             "resource_type": "Course",
-            "link": "https://example.com/fastapi"
-        }
+            "link": "https://example.com/fastapi",
+        },
     )
 
     client.post(
@@ -310,8 +312,8 @@ def test_search_resource_api(tmp_path, monkeypatch):
             "subject": "Java",
             "title": "Java Basics",
             "resource_type": "Notes",
-            "link": "https://example.com/java"
-        }
+            "link": "https://example.com/java",
+        },
     )
 
     response = client.get(
@@ -333,3 +335,35 @@ def test_not_found_resource_api(tmp_path, monkeypatch):
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Resource not found"
+
+
+def test_create_resource_api_rejects_empty_fields(tmp_path, monkeypatch):
+    setup_test_database(tmp_path, monkeypatch)
+
+    response = client.post(
+        "/resources",
+        json={
+            "subject": "",
+            "title": "Java Basics",
+            "resource_type": "Notes",
+            "link": "https://example.com/java",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_create_resource_api_rejects_whitespace_fields(tmp_path, monkeypatch):
+    setup_test_database(tmp_path, monkeypatch)
+
+    response = client.post(
+        "/resources",
+        json={
+            "subject": "   ",
+            "title": "Java Basics",
+            "resource_type": "Notes",
+            "link": "https://example.com/java",
+        },
+    )
+
+    assert response.status_code == 422
