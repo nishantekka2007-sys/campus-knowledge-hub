@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>Campus Knowledge Hub</title>
 
     <style>
@@ -110,17 +109,28 @@
             flex-wrap: wrap;
         }
 
-        .search-box {
-            flex: 1;
-            min-width: 250px;
+        .search-box,
+        .type-filter {
             padding: 14px 16px;
             border: 1px solid #d1d5db;
             border-radius: 10px;
             font-size: 16px;
             outline: none;
+            background: white;
         }
 
-        .search-box:focus {
+        .search-box {
+            flex: 1;
+            min-width: 250px;
+        }
+
+        .type-filter {
+            min-width: 180px;
+            cursor: pointer;
+        }
+
+        .search-box:focus,
+        .type-filter:focus {
             border-color: #2563eb;
         }
 
@@ -231,6 +241,7 @@
             border: 1px solid #e5e7eb;
             text-align: center;
             color: #6b7280;
+            grid-column: 1 / -1;
         }
 
         footer {
@@ -255,6 +266,17 @@
 
             .resource-form {
                 grid-template-columns: 1fr;
+            }
+
+            .search-box,
+            .type-filter {
+                width: 100%;
+            }
+
+            .resource-count {
+                width: 100%;
+                justify-content: center;
+                padding: 5px 0;
             }
         }
     </style>
@@ -322,6 +344,10 @@
                 placeholder="Search by subject, title, or type..."
             >
 
+            <select id="typeFilter" class="type-filter">
+                <option value="">All Types</option>
+            </select>
+
             <div class="resource-count" id="resourceCount">
                 Loading...
             </div>
@@ -341,7 +367,9 @@
     </footer>
 
     <script>
+
         let allResources = [];
+
 
         async function loadResources() {
             try {
@@ -353,9 +381,11 @@
 
                 allResources = await response.json();
 
-                applySearch();
+                updateTypeFilterOptions();
+                applyFilters();
 
             } catch (error) {
+
                 document.getElementById("resources").innerHTML = `
                     <div class="message">
                         Unable to load resources.
@@ -366,23 +396,75 @@
             }
         }
 
-        function applySearch() {
+
+        function updateTypeFilterOptions() {
+
+            const typeFilter = document.getElementById("typeFilter");
+
+            const currentValue = typeFilter.value;
+
+            const types = [
+                ...new Set(
+                    allResources.map(resource =>
+                        resource.resource_type.trim()
+                    )
+                )
+            ].sort((a, b) => a.localeCompare(b));
+
+            typeFilter.innerHTML = `
+                <option value="">All Types</option>
+            `;
+
+            types.forEach(type => {
+
+                const option = document.createElement("option");
+
+                option.value = type;
+                option.textContent = type;
+
+                typeFilter.appendChild(option);
+            });
+
+            if (types.includes(currentValue)) {
+                typeFilter.value = currentValue;
+            }
+        }
+
+
+        function applyFilters() {
+
             const keyword = document
                 .getElementById("searchInput")
                 .value
                 .toLowerCase()
                 .trim();
 
-            const filteredResources = allResources.filter(resource =>
-                resource.subject.toLowerCase().includes(keyword) ||
-                resource.title.toLowerCase().includes(keyword) ||
-                resource.resource_type.toLowerCase().includes(keyword)
-            );
+            const selectedType = document
+                .getElementById("typeFilter")
+                .value
+                .toLowerCase()
+                .trim();
+
+            const filteredResources = allResources.filter(resource => {
+
+                const matchesSearch =
+                    resource.subject.toLowerCase().includes(keyword) ||
+                    resource.title.toLowerCase().includes(keyword) ||
+                    resource.resource_type.toLowerCase().includes(keyword);
+
+                const matchesType =
+                    !selectedType ||
+                    resource.resource_type.toLowerCase() === selectedType;
+
+                return matchesSearch && matchesType;
+            });
 
             displayResources(filteredResources);
         }
 
+
         function displayResources(resources) {
+
             const container = document.getElementById("resources");
             const count = document.getElementById("resourceCount");
 
@@ -390,15 +472,18 @@
                 `${resources.length} resource${resources.length === 1 ? "" : "s"}`;
 
             if (resources.length === 0) {
+
                 container.innerHTML = `
                     <div class="message">
                         No resources found.
                     </div>
                 `;
+
                 return;
             }
 
             container.innerHTML = resources.map(resource => `
+
                 <article class="resource-card">
 
                     <span class="badge">
@@ -442,10 +527,13 @@
                     </div>
 
                 </article>
+
             `).join("");
         }
 
+
         function escapeHtml(value) {
+
             return String(value)
                 .replaceAll("&", "&amp;")
                 .replaceAll("<", "&lt;")
@@ -454,13 +542,21 @@
                 .replaceAll("'", "&#039;");
         }
 
+
         function escapeAttribute(value) {
             return escapeHtml(value);
         }
 
+
         document
             .getElementById("searchInput")
-            .addEventListener("input", applySearch);
+            .addEventListener("input", applyFilters);
+
+
+        document
+            .getElementById("typeFilter")
+            .addEventListener("change", applyFilters);
+
 
         document
             .getElementById("resourceForm")
@@ -468,44 +564,63 @@
 
                 event.preventDefault();
 
-                const message = document.getElementById("formMessage");
+                const message =
+                    document.getElementById("formMessage");
 
                 const resource = {
-                    subject: document.getElementById("subject").value.trim(),
-                    title: document.getElementById("title").value.trim(),
-                    resource_type: document.getElementById("resourceType").value.trim(),
-                    link: document.getElementById("link").value.trim()
+
+                    subject:
+                        document.getElementById("subject").value.trim(),
+
+                    title:
+                        document.getElementById("title").value.trim(),
+
+                    resource_type:
+                        document.getElementById("resourceType").value.trim(),
+
+                    link:
+                        document.getElementById("link").value.trim()
                 };
 
                 message.textContent = "Adding resource...";
 
                 try {
+
                     const response = await fetch("/resources", {
+
                         method: "POST",
+
                         headers: {
                             "Content-Type": "application/json"
                         },
+
                         body: JSON.stringify(resource)
                     });
 
                     const result = await response.json();
 
                     if (!response.ok) {
-                        throw new Error(result.detail || "Failed to add resource");
+                        throw new Error(
+                            result.detail || "Failed to add resource"
+                        );
                     }
 
-                    message.textContent = "Resource added successfully.";
+                    message.textContent =
+                        "Resource added successfully.";
 
                     this.reset();
 
                     await loadResources();
 
                 } catch (error) {
+
                     message.textContent = error.message;
                 }
             });
 
+
         async function deleteResource(resourceId) {
+
             const resource = allResources.find(
                 item => item.id === resourceId
             );
@@ -523,6 +638,7 @@
             }
 
             try {
+
                 const response = await fetch(
                     `/resources/${resourceId}`,
                     {
@@ -541,11 +657,14 @@
                 await loadResources();
 
             } catch (error) {
+
                 alert(error.message);
             }
         }
 
+
         async function editResource(resourceId) {
+
             const resource = allResources.find(
                 item => item.id === resourceId
             );
@@ -591,18 +710,29 @@
             }
 
             try {
+
                 const response = await fetch(
                     `/resources/${resourceId}`,
                     {
                         method: "PUT",
+
                         headers: {
                             "Content-Type": "application/json"
                         },
+
                         body: JSON.stringify({
-                            subject: subject.trim(),
-                            title: title.trim(),
-                            resource_type: resourceType.trim(),
-                            link: link.trim()
+
+                            subject:
+                                subject.trim(),
+
+                            title:
+                                title.trim(),
+
+                            resource_type:
+                                resourceType.trim(),
+
+                            link:
+                                link.trim()
                         })
                     }
                 );
@@ -618,11 +748,14 @@
                 await loadResources();
 
             } catch (error) {
+
                 alert(error.message);
             }
         }
 
+
         loadResources();
+
     </script>
 
 </body>
