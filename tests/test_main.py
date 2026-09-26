@@ -198,6 +198,13 @@ def test_homepage():
     assert "Campus Knowledge Hub" in response.text
 
 
+def test_health_check():
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
 def test_get_resources_api(tmp_path, monkeypatch):
     setup_test_database(tmp_path, monkeypatch)
 
