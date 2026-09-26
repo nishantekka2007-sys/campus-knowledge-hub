@@ -129,6 +129,59 @@ def search_resources():
         print(f"Link: {link}")
 
 
+def update_resource():
+    print("\n--- Update Resource ---")
+
+    resource_id = input("Enter resource ID: ").strip()
+
+    if not resource_id.isdigit():
+        print("Please enter a valid resource ID.")
+        return
+
+    connection = connect_database()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT subject, title, resource_type, link
+        FROM resources
+        WHERE id = ?
+    """, (resource_id,))
+
+    resource = cursor.fetchone()
+
+    if resource is None:
+        print("Resource not found.")
+        connection.close()
+        return
+
+    print("\nCurrent resource:")
+    print(f"Subject: {resource[0]}")
+    print(f"Title: {resource[1]}")
+    print(f"Type: {resource[2]}")
+    print(f"Link: {resource[3]}")
+
+    print("\nEnter the new information.")
+
+    subject = get_required_input("New subject: ")
+    title = get_required_input("New title: ")
+    resource_type = get_required_input("New type: ")
+    link = get_required_input("New link: ")
+
+    cursor.execute("""
+        UPDATE resources
+        SET subject = ?,
+            title = ?,
+            resource_type = ?,
+            link = ?
+        WHERE id = ?
+    """, (subject, title, resource_type, link, resource_id))
+
+    connection.commit()
+    connection.close()
+
+    print("\nResource updated successfully!")
+
+
 def delete_resource():
     print("\n--- Delete Resource ---")
 
@@ -183,8 +236,9 @@ def main():
         print("1. Add Resource")
         print("2. View Resources")
         print("3. Search Resources")
-        print("4. Delete Resource")
-        print("5. Exit")
+        print("4. Update Resource")
+        print("5. Delete Resource")
+        print("6. Exit")
 
         choice = input("\nEnter your choice: ").strip()
 
@@ -198,9 +252,12 @@ def main():
             search_resources()
 
         elif choice == "4":
-            delete_resource()
+            update_resource()
 
         elif choice == "5":
+            delete_resource()
+
+        elif choice == "6":
             print("\nGoodbye!")
             break
 
