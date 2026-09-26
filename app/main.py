@@ -1191,7 +1191,7 @@ create_table()
 
 
 # =========================================================
-# BASIC ENDPOINTS
+# BASIC ENDPOINTS / FRONTEND PAGES
 # =========================================================
 
 @app.get(
@@ -1204,6 +1204,62 @@ def home(
     return templates.TemplateResponse(
         request=request,
         name="index.html",
+        context={},
+    )
+
+
+@app.get(
+    "/login",
+    response_class=HTMLResponse,
+)
+def login_page(
+    request: Request,
+):
+    return templates.TemplateResponse(
+        request=request,
+        name="login.html",
+        context={},
+    )
+
+
+@app.get(
+    "/register",
+    response_class=HTMLResponse,
+)
+def register_page(
+    request: Request,
+):
+    return templates.TemplateResponse(
+        request=request,
+        name="register.html",
+        context={},
+    )
+
+
+@app.get(
+    "/account",
+    response_class=HTMLResponse,
+)
+def account_page(
+    request: Request,
+):
+    return templates.TemplateResponse(
+        request=request,
+        name="account.html",
+        context={},
+    )
+
+
+@app.get(
+    "/admin",
+    response_class=HTMLResponse,
+)
+def admin_page(
+    request: Request,
+):
+    return templates.TemplateResponse(
+        request=request,
+        name="admin.html",
         context={},
     )
 

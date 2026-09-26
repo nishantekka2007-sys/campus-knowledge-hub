@@ -1,0 +1,642 @@
+{% extends "base.html" %}
+
+{% block title %}
+Admin Dashboard · Campus Knowledge Hub
+{% endblock %}
+
+
+{% block content %}
+
+<section class="hero">
+
+    <div class="eyebrow">
+        Administration
+    </div>
+
+
+    <h1>
+        Admin dashboard
+    </h1>
+
+
+    <p>
+        Manage registered users and control
+        their platform roles.
+    </p>
+
+</section>
+
+
+
+<section
+    id="admin-loading"
+    class="card panel"
+>
+    Checking administrator access...
+</section>
+
+
+
+<section
+    id="admin-content"
+    hidden
+>
+
+
+    <div class="card panel">
+
+
+        <div
+            style="
+                display:flex;
+                justify-content:space-between;
+                align-items:center;
+                gap:15px;
+                flex-wrap:wrap;
+            "
+        >
+
+            <div>
+
+                <h2
+                    style="margin:0 0 4px;"
+                >
+                    User management
+                </h2>
+
+
+                <p
+                    class="muted"
+                    style="margin:0;"
+                >
+                    Change user roles from one place.
+                </p>
+
+            </div>
+
+
+            <button
+                id="refresh-users"
+                class="button button-ghost"
+                type="button"
+            >
+                Refresh
+            </button>
+
+        </div>
+
+
+
+        <p
+            id="users-summary"
+            class="muted"
+            style="margin-top:18px;"
+        >
+            Loading users...
+        </p>
+
+
+
+        <div class="table-wrap">
+
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>
+                            ID
+                        </th>
+
+                        <th>
+                            Username
+                        </th>
+
+                        <th>
+                            Role
+                        </th>
+
+                        <th>
+                            Created
+                        </th>
+
+                        <th>
+                            Action
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody
+                    id="users-body"
+                ></tbody>
+
+            </table>
+
+        </div>
+
+
+    </div>
+
+
+</section>
+
+{% endblock %}
+
+
+
+{% block scripts %}
+
+<script>
+
+document.addEventListener(
+    "DOMContentLoaded",
+    async function () {
+
+
+        /*
+         * Check current session.
+         */
+
+        const currentUser =
+            await refreshNavigation();
+
+
+
+        /*
+         * Admin page requires
+         * an authenticated user.
+         */
+
+        if (!currentUser) {
+
+            window.location.href =
+                "/login?next=/admin";
+
+            return;
+        }
+
+
+
+        /*
+         * Only administrators
+         * can access this page.
+         */
+
+        if (
+            currentUser.role !==
+            "admin"
+        ) {
+
+            window.location.href =
+                "/";
+
+            return;
+        }
+
+
+
+        /*
+         * Show dashboard.
+         */
+
+        document.getElementById(
+            "admin-loading"
+        ).hidden = true;
+
+
+        document.getElementById(
+            "admin-content"
+        ).hidden = false;
+
+
+
+        /*
+         * Load users from backend.
+         */
+
+        async function loadUsers() {
+
+
+            const body =
+                document.getElementById(
+                    "users-body"
+                );
+
+
+            const summary =
+                document.getElementById(
+                    "users-summary"
+                );
+
+
+            body.innerHTML = "";
+
+
+            summary.textContent =
+                "Loading users...";
+
+
+            try {
+
+
+                const response =
+                    await fetch(
+                        "/users",
+                        {
+                            credentials:
+                                "same-origin"
+                        }
+                    );
+
+
+                if (
+                    !response.ok
+                ) {
+
+                    throw new Error(
+                        await getApiError(
+                            response
+                        )
+                    );
+                }
+
+
+                const users =
+                    await response.json();
+
+
+                if (
+                    users.length === 0
+                ) {
+
+                    summary.textContent =
+                        "No users registered.";
+
+                    return;
+                }
+
+
+                summary.textContent =
+                    `${users.length} user(s)`;
+
+
+
+                /*
+                 * Create table rows.
+                 */
+
+                users.forEach(
+                    user => {
+
+
+                        const row =
+                            document.createElement(
+                                "tr"
+                            );
+
+
+                        const isCurrentUser =
+                            Number(user.id) ===
+                            Number(currentUser.id);
+
+
+
+                        /*
+                         * ID
+                         */
+
+                        const idCell =
+                            document.createElement(
+                                "td"
+                            );
+
+                        idCell.textContent =
+                            user.id;
+
+
+
+                        /*
+                         * Username
+                         */
+
+                        const usernameCell =
+                            document.createElement(
+                                "td"
+                            );
+
+                        const usernameStrong =
+                            document.createElement(
+                                "strong"
+                            );
+
+                        usernameStrong.textContent =
+                            user.username;
+
+                        usernameCell.appendChild(
+                            usernameStrong
+                        );
+
+
+
+                        /*
+                         * Role selector
+                         */
+
+                        const roleCell =
+                            document.createElement(
+                                "td"
+                            );
+
+
+                        const roleSelect =
+                            document.createElement(
+                                "select"
+                            );
+
+
+                        roleSelect.dataset.roleId =
+                            user.id;
+
+
+                        roleSelect.innerHTML = `
+                            <option value="student">
+                                Student
+                            </option>
+
+                            <option value="admin">
+                                Admin
+                            </option>
+                        `;
+
+
+                        roleSelect.value =
+                            user.role;
+
+
+                        roleSelect.disabled =
+                            isCurrentUser;
+
+
+                        roleCell.appendChild(
+                            roleSelect
+                        );
+
+
+
+                        /*
+                         * Created date
+                         */
+
+                        const createdCell =
+                            document.createElement(
+                                "td"
+                            );
+
+
+                        const createdDate =
+                            new Date(
+                                user.created_at
+                            );
+
+
+                        createdCell.textContent =
+                            Number.isNaN(
+                                createdDate.getTime()
+                            )
+                            ?
+                            "Unknown"
+                            :
+                            createdDate.toLocaleDateString();
+
+
+
+                        /*
+                         * Action
+                         */
+
+                        const actionCell =
+                            document.createElement(
+                                "td"
+                            );
+
+
+                        if (
+                            isCurrentUser
+                        ) {
+
+                            const label =
+                                document.createElement(
+                                    "span"
+                                );
+
+
+                            label.className =
+                                "muted";
+
+
+                            label.textContent =
+                                "Current account";
+
+
+                            actionCell.appendChild(
+                                label
+                            );
+
+
+                        } else {
+
+
+                            const saveButton =
+                                document.createElement(
+                                    "button"
+                                );
+
+
+                            saveButton.className =
+                                "button button-small button-primary";
+
+
+                            saveButton.type =
+                                "button";
+
+
+                            saveButton.textContent =
+                                "Save";
+
+
+                            saveButton.dataset.userId =
+                                user.id;
+
+
+
+                            saveButton.addEventListener(
+                                "click",
+                                async function () {
+
+
+                                    const originalText =
+                                        saveButton.textContent;
+
+
+                                    saveButton.disabled =
+                                        true;
+
+
+                                    saveButton.textContent =
+                                        "Saving...";
+
+
+                                    try {
+
+
+                                        const updateResponse =
+                                            await fetch(
+                                                `/users/${user.id}/role`,
+                                                {
+                                                    method:
+                                                        "PATCH",
+
+                                                    credentials:
+                                                        "same-origin",
+
+                                                    headers: {
+                                                        "Content-Type":
+                                                            "application/json"
+                                                    },
+
+                                                    body:
+                                                        JSON.stringify({
+                                                            role:
+                                                                roleSelect.value
+                                                        })
+                                                }
+                                            );
+
+
+                                        if (
+                                            !updateResponse.ok
+                                        ) {
+
+                                            throw new Error(
+                                                await getApiError(
+                                                    updateResponse
+                                                )
+                                            );
+                                        }
+
+
+                                        showToast(
+                                            "User role updated successfully.",
+                                            "success"
+                                        );
+
+
+                                        await loadUsers();
+
+
+                                    } catch (error) {
+
+
+                                        showToast(
+                                            error.message,
+                                            "error"
+                                        );
+
+
+                                        saveButton.disabled =
+                                            false;
+
+
+                                        saveButton.textContent =
+                                            originalText;
+                                    }
+
+                                }
+                            );
+
+
+                            actionCell.appendChild(
+                                saveButton
+                            );
+                        }
+
+
+
+                        row.appendChild(
+                            idCell
+                        );
+
+                        row.appendChild(
+                            usernameCell
+                        );
+
+                        row.appendChild(
+                            roleCell
+                        );
+
+                        row.appendChild(
+                            createdCell
+                        );
+
+                        row.appendChild(
+                            actionCell
+                        );
+
+
+                        body.appendChild(
+                            row
+                        );
+
+                    }
+                );
+
+
+            } catch (error) {
+
+
+                summary.textContent =
+                    "Unable to load users.";
+
+
+                showToast(
+                    error.message,
+                    "error"
+                );
+            }
+        }
+
+
+
+        /*
+         * Refresh button.
+         */
+
+        document
+            .getElementById(
+                "refresh-users"
+            )
+            .addEventListener(
+                "click",
+                loadUsers
+            );
+
+
+
+        /*
+         * Initial load.
+         */
+
+        await loadUsers();
+
+    }
+
+);
+
+</script>
+
+{% endblock %}

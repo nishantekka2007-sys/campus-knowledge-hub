@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+
+{% block title %}
+Account · Campus Knowledge Hub
+{% endblock %}
+
+
+{% block content %}
+
+<section class="hero">
+
+    <div class="eyebrow">
+        Your profile
+    </div>
+
+
+    <h1>
+        Account
+    </h1>
+
+
+    <p>
+        View your account information and platform access.
+    </p>
+
+</section>
+
+
+
+<section
+    id="account-loading"
+    class="card panel"
+>
+    Loading account details...
+</section>
+
+
+
+<section
+    id="account-content"
+    hidden
+>
+
+
+    <div class="card profile">
+
+        <div class="eyebrow">
+            Signed in
+        </div>
+
+
+        <h2
+            id="account-username"
+            style="margin:5px 0;"
+        ></h2>
+
+
+        <p
+            class="muted"
+            style="margin:0;"
+        >
+            Your Campus Knowledge Hub account is active.
+        </p>
+
+    </div>
+
+
+
+    <div class="grid-3 section">
+
+
+        <div class="profile-stat">
+
+            <span class="muted">
+                Username
+            </span>
+
+            <strong
+                id="stat-username"
+            ></strong>
+
+        </div>
+
+
+
+        <div class="profile-stat">
+
+            <span class="muted">
+                Role
+            </span>
+
+            <strong
+                id="stat-role"
+                style="text-transform:capitalize;"
+            ></strong>
+
+        </div>
+
+
+
+        <div class="profile-stat">
+
+            <span class="muted">
+                Member since
+            </span>
+
+            <strong
+                id="stat-created"
+            ></strong>
+
+        </div>
+
+
+    </div>
+
+
+
+    <div class="card panel section">
+
+
+        <h3 style="margin-top:0;">
+            Platform access
+        </h3>
+
+
+        <p class="muted">
+            Your role determines which management actions
+            are available to you on the platform.
+        </p>
+
+
+
+        <div class="button-row">
+
+
+            <a
+                class="button button-primary"
+                href="/"
+            >
+                Browse resources
+            </a>
+
+
+            <a
+                id="admin-button"
+                class="button button-ghost"
+                href="/admin"
+                hidden
+            >
+                Admin dashboard
+            </a>
+
+
+        </div>
+
+
+    </div>
+
+
+</section>
+
+{% endblock %}
+
+
+
+{% block scripts %}
+
+<script>
+
+document.addEventListener(
+    "DOMContentLoaded",
+    async function () {
+
+
+        /*
+         * Ask backend for the
+         * currently authenticated user.
+         */
+
+        const user =
+            await refreshNavigation();
+
+
+
+        /*
+         * Account page requires login.
+         */
+
+        if (!user) {
+
+            window.location.href =
+                "/login?next=/account";
+
+            return;
+        }
+
+
+
+        /*
+         * Display account page.
+         */
+
+        document.getElementById(
+            "account-loading"
+        ).hidden = true;
+
+
+        document.getElementById(
+            "account-content"
+        ).hidden = false;
+
+
+
+        /*
+         * Username.
+         */
+
+        document.getElementById(
+            "account-username"
+        ).textContent =
+            user.username;
+
+
+        document.getElementById(
+            "stat-username"
+        ).textContent =
+            user.username;
+
+
+
+        /*
+         * Role.
+         */
+
+        document.getElementById(
+            "stat-role"
+        ).textContent =
+            user.role;
+
+
+
+        /*
+         * Account creation date.
+         */
+
+        const createdDate =
+            new Date(
+                user.created_at
+            );
+
+
+        if (
+            !Number.isNaN(
+                createdDate.getTime()
+            )
+        ) {
+
+            document.getElementById(
+                "stat-created"
+            ).textContent =
+                createdDate.toLocaleDateString(
+                    undefined,
+                    {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric"
+                    }
+                );
+
+        } else {
+
+            document.getElementById(
+                "stat-created"
+            ).textContent =
+                "Unknown";
+        }
+
+
+
+        /*
+         * Admin users get access
+         * to the admin dashboard.
+         */
+
+        if (
+            user.role === "admin"
+        ) {
+
+            document.getElementById(
+                "admin-button"
+            ).hidden = false;
+        }
+
+    }
+
+);
+
+</script>
+
+{% endblock %}
