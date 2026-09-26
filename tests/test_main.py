@@ -1,46 +1,28 @@
-import sqlite3
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
 import app.main as main
+from fastapi.testclient import TestClient
 
 
-def setup_database(tmp_path):
-    database = tmp_path / "test.db"
-    main.DATABASE = str(database)
+client = TestClient(main.app)
+
+
+def setup_test_database(tmp_path, monkeypatch):
+    database_path = tmp_path / "test.db"
+
+    monkeypatch.setattr(main, "DATABASE", str(database_path))
     main.create_table()
-    return database
+
+    return database_path
 
 
-def get_all_resources(database):
-    connection = sqlite3.connect(database)
+def test_create_table(tmp_path, monkeypatch):
+    setup_test_database(tmp_path, monkeypatch)
+
+    connection = main.connect_database()
     cursor = connection.cursor()
 
-    cursor.execute("""
-        SELECT id, subject, title, resource_type, link
-        FROM resources
-    """)
-
-    resources = cursor.fetchall()
-
-    connection.close()
-
-    return resources
-
-
-def test_create_table(tmp_path):
-    database = setup_database(tmp_path)
-
-    connection = sqlite3.connect(database)
-    cursor = connection.cursor()
-
-    cursor.execute("""
-        SELECT name
-        FROM sqlite_master
-        WHERE type = 'table' AND name = 'resources'
-    """)
+    cursor.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='resources'"
+    )
 
     result = cursor.fetchone()
 
@@ -50,191 +32,304 @@ def test_create_table(tmp_path):
 
 
 def test_add_resource(tmp_path, monkeypatch):
-    database = setup_database(tmp_path)
+    setup_test_database(tmp_path, monkeypatch)
 
-    inputs = iter([
-        "Python",
-        "Python Fundamentals",
-        "Notes",
-        "https://example.com/python"
-    ])
-
-    monkeypatch.setattr("builtins.input", lambda _: next(inputs))
-
-    main.add_resource()
-
-    resources = get_all_resources(database)
-
-    assert len(resources) == 1
-    assert resources[0][1] == "Python"
-    assert resources[0][2] == "Python Fundamentals"
-    assert resources[0][3] == "Notes"
-    assert resources[0][4] == "https://example.com/python"
-
-
-def test_search_resources(tmp_path, monkeypatch, capsys):
-    database = setup_database(tmp_path)
-
-    connection = sqlite3.connect(database)
+    connection = main.connect_database()
     cursor = connection.cursor()
 
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO resources (subject, title, resource_type, link)
         VALUES (?, ?, ?, ?)
-    """, (
-        "Python",
-        "Python Fundamentals",
-        "Notes",
-        "https://example.com/python"
-    ))
-
-    cursor.execute("""
-        INSERT INTO resources (subject, title, resource_type, link)
-        VALUES (?, ?, ?, ?)
-    """, (
-        "Physics",
-        "Electromagnetic Induction",
-        "Notes",
-        "https://example.com/physics"
-    ))
+        """,
+        (
+            "Python",
+            "Python Fundamentals",
+            "Notes",
+            "https://example.com"
+        )
+    )
 
     connection.commit()
+
+    cursor.execute("SELECT * FROM resources")
+
+    resource = cursor.fetchone()
+
     connection.close()
 
-    monkeypatch.setattr("builtins.input", lambda _: "Python")
+    assert resource[1] == "Python"
+    assert resource[2] == "Python Fundamentals"
+    assert resource[3] == "Notes"
+    assert resource[4] == "https://example.com"
 
-    main.search_resources()
 
-    output = capsys.readouterr().out
+def test_search_resource(tmp_path, monkeypatch):
+    setup_test_database(tmp_path, monkeypatch)
 
-    assert "Python Fundamentals" in output
-    assert "Electromagnetic Induction" not in output
+    connection = main.connect_database()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        INSERT INTO resources (subject, title, resource_type, link)
+        VALUES (?, ?, ?, ?)
+        """,
+        (
+            "Python",
+            "FastAPI Basics",
+            "Course",
+            "https://example.com/fastapi"
+        )
+    )
+
+    connection.commit()
+
+    search_term = "%FastAPI%"
+
+    cursor.execute(
+        """
+        SELECT * FROM resources
+        WHERE subject LIKE ?
+           OR title LIKE ?
+           OR resource_type LIKE ?
+        """,
+        (search_term, search_term, search_term)
+    )
+
+    results = cursor.fetchall()
+
+    connection.close()
+
+    assert len(results) == 1
+    assert results[0][2] == "FastAPI Basics"
 
 
 def test_update_resource(tmp_path, monkeypatch):
-    database = setup_database(tmp_path)
+    setup_test_database(tmp_path, monkeypatch)
 
-    connection = sqlite3.connect(database)
+    connection = main.connect_database()
     cursor = connection.cursor()
 
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO resources (subject, title, resource_type, link)
         VALUES (?, ?, ?, ?)
-    """, (
-        "Python",
-        "Python Basics",
-        "Notes",
-        "https://example.com/python"
-    ))
+        """,
+        (
+            "Python",
+            "Python Basics",
+            "Notes",
+            "https://example.com"
+        )
+    )
 
     connection.commit()
+
+    cursor.execute(
+        """
+        UPDATE resources
+        SET title = ?
+        WHERE id = ?
+        """,
+        ("Python Fundamentals", 1)
+    )
+
+    connection.commit()
+
+    cursor.execute(
+        "SELECT title FROM resources WHERE id = ?",
+        (1,)
+    )
+
+    result = cursor.fetchone()
+
     connection.close()
 
-    inputs = iter([
-        "1",
-        "Python",
-        "Python Advanced",
-        "Course",
-        "https://example.com/advanced"
-    ])
-
-    monkeypatch.setattr("builtins.input", lambda _: next(inputs))
-
-    main.update_resource()
-
-    resources = get_all_resources(database)
-
-    assert resources[0][2] == "Python Advanced"
-    assert resources[0][3] == "Course"
-    assert resources[0][4] == "https://example.com/advanced"
+    assert result[0] == "Python Fundamentals"
 
 
 def test_delete_resource(tmp_path, monkeypatch):
-    database = setup_database(tmp_path)
+    setup_test_database(tmp_path, monkeypatch)
 
-    connection = sqlite3.connect(database)
+    connection = main.connect_database()
     cursor = connection.cursor()
 
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO resources (subject, title, resource_type, link)
         VALUES (?, ?, ?, ?)
-    """, (
-        "Python",
-        "Python Basics",
-        "Notes",
-        "https://example.com/python"
-    ))
+        """,
+        (
+            "Java",
+            "Java Basics",
+            "Notes",
+            "https://example.com/java"
+        )
+    )
 
     connection.commit()
-    connection.close()
 
-    inputs = iter([
-        "1",
-        "y"
-    ])
+    cursor.execute(
+        "DELETE FROM resources WHERE id = ?",
+        (1,)
+    )
 
-    monkeypatch.setattr("builtins.input", lambda _: next(inputs))
+    connection.commit()
 
-    main.delete_resource()
-
-    resources = get_all_resources(database)
-
-    assert resources == []
-
-import sqlite3
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-import app.main as main
-
-
-def test_create_table(tmp_path):
-    database = tmp_path / "test.db"
-
-    main.DATABASE = str(database)
-
-    main.create_table()
-
-    connection = sqlite3.connect(database)
-    cursor = connection.cursor()
-
-    cursor.execute("""
-        SELECT name
-        FROM sqlite_master
-        WHERE type = 'table' AND name = 'resources'
-    """)
+    cursor.execute(
+        "SELECT * FROM resources WHERE id = ?",
+        (1,)
+    )
 
     result = cursor.fetchone()
 
     connection.close()
 
-    assert result is not None
-import sqlite3
-
-import app.main as main
+    assert result is None
 
 
-def test_create_table(tmp_path):
-    database = tmp_path / "test.db"
+def test_homepage():
+    response = client.get("/")
 
-    main.DATABASE = str(database)
+    assert response.status_code == 200
+    assert "Campus Knowledge Hub" in response.text
 
-    main.create_table()
 
-    connection = sqlite3.connect(database)
-    cursor = connection.cursor()
+def test_get_resources_api(tmp_path, monkeypatch):
+    setup_test_database(tmp_path, monkeypatch)
 
-    cursor.execute("""
-        SELECT name
-        FROM sqlite_master
-        WHERE type = 'table' AND name = 'resources'
-    """)
+    response = client.get("/resources")
 
-    result = cursor.fetchone()
+    assert response.status_code == 200
+    assert response.json() == []
 
-    connection.close()
 
-    assert result is not None
+def test_create_resource_api(tmp_path, monkeypatch):
+    setup_test_database(tmp_path, monkeypatch)
 
+    response = client.post(
+        "/resources",
+        json={
+            "subject": "Java",
+            "title": "Java Basics",
+            "resource_type": "Notes",
+            "link": "https://example.com/java"
+        }
+    )
+
+    assert response.status_code == 201
+    assert response.json()["message"] == "Resource created successfully"
+
+    resource_id = response.json()["id"]
+
+    get_response = client.get(f"/resources/{resource_id}")
+
+    assert get_response.status_code == 200
+    assert get_response.json()["title"] == "Java Basics"
+
+
+def test_update_resource_api(tmp_path, monkeypatch):
+    setup_test_database(tmp_path, monkeypatch)
+
+    create_response = client.post(
+        "/resources",
+        json={
+            "subject": "Python",
+            "title": "Python Basics",
+            "resource_type": "Notes",
+            "link": "https://example.com"
+        }
+    )
+
+    resource_id = create_response.json()["id"]
+
+    response = client.put(
+        f"/resources/{resource_id}",
+        json={
+            "subject": "Python",
+            "title": "Python Fundamentals",
+            "resource_type": "Course",
+            "link": "https://example.com/python"
+        }
+    )
+
+    assert response.status_code == 200
+
+    get_response = client.get(f"/resources/{resource_id}")
+
+    assert get_response.status_code == 200
+    assert get_response.json()["title"] == "Python Fundamentals"
+    assert get_response.json()["resource_type"] == "Course"
+
+
+def test_delete_resource_api(tmp_path, monkeypatch):
+    setup_test_database(tmp_path, monkeypatch)
+
+    create_response = client.post(
+        "/resources",
+        json={
+            "subject": "Java",
+            "title": "Java Basics",
+            "resource_type": "Notes",
+            "link": "https://example.com/java"
+        }
+    )
+
+    resource_id = create_response.json()["id"]
+
+    response = client.delete(
+        f"/resources/{resource_id}"
+    )
+
+    assert response.status_code == 200
+
+    get_response = client.get(
+        f"/resources/{resource_id}"
+    )
+
+    assert get_response.status_code == 404
+
+
+def test_search_resource_api(tmp_path, monkeypatch):
+    setup_test_database(tmp_path, monkeypatch)
+
+    client.post(
+        "/resources",
+        json={
+            "subject": "Python",
+            "title": "FastAPI Basics",
+            "resource_type": "Course",
+            "link": "https://example.com/fastapi"
+        }
+    )
+
+    client.post(
+        "/resources",
+        json={
+            "subject": "Java",
+            "title": "Java Basics",
+            "resource_type": "Notes",
+            "link": "https://example.com/java"
+        }
+    )
+
+    response = client.get(
+        "/resources/search/FastAPI"
+    )
+
+    assert response.status_code == 200
+
+    results = response.json()
+
+    assert len(results) == 1
+    assert results[0]["title"] == "FastAPI Basics"
+
+
+def test_not_found_resource_api(tmp_path, monkeypatch):
+    setup_test_database(tmp_path, monkeypatch)
+
+    response = client.get("/resources/9999")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Resource not found"
