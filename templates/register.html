@@ -1,311 +1,48 @@
 {% extends "base.html" %}
-
-{% block title %}
-Create account · Campus Knowledge Hub
-{% endblock %}
-
-
+{% block title %}Create account · Campus Knowledge Hub{% endblock %}
 {% block content %}
-
-<section class="auth-card card">
-
-    <div class="eyebrow">
-        Join the hub
+<section class="auth-layout">
+    <div class="panel auth-visual reveal">
+        <div>
+            <div class="eyebrow">Join the hub</div>
+            <h2>Make the<br>library better.</h2>
+            <p>Create a student account and start contributing useful resources to the people around you.</p>
+        </div>
+        <div class="auth-quote">
+            <div><small>Share</small><strong>Resources</strong></div>
+            <div><small>Save</small><strong>Favorites</strong></div>
+        </div>
     </div>
-
-
-    <h1>
-        Create your account
-    </h1>
-
-
-    <p>
-        Create a student account and start
-        sharing useful learning resources.
-    </p>
-
-
-    <form id="register-form">
-
-
-        <div class="field">
-
-            <label for="username">
-                Username
-            </label>
-
-            <input
-                id="username"
-                name="username"
-                type="text"
-                minlength="3"
-                maxlength="30"
-                pattern="[A-Za-z0-9_]{3,30}"
-                autocomplete="username"
-                placeholder="Choose a username"
-                required
-            >
-
-            <span class="muted">
-                3–30 characters: letters, numbers and underscores.
-            </span>
-
-        </div>
-
-
-
-        <div class="field">
-
-            <label for="password">
-                Password
-            </label>
-
-            <input
-                id="password"
-                name="password"
-                type="password"
-                minlength="8"
-                maxlength="128"
-                autocomplete="new-password"
-                placeholder="Create a password"
-                required
-            >
-
-            <span class="muted">
-                Minimum 8 characters.
-            </span>
-
-        </div>
-
-
-
-        <div class="field">
-
-            <label for="confirm-password">
-                Confirm password
-            </label>
-
-            <input
-                id="confirm-password"
-                name="confirm_password"
-                type="password"
-                minlength="8"
-                maxlength="128"
-                autocomplete="new-password"
-                placeholder="Enter your password again"
-                required
-            >
-
-        </div>
-
-
-
-        <button
-            id="register-button"
-            class="button button-primary"
-            type="submit"
-            style="width:100%;"
-        >
-            Create account
-        </button>
-
-
-    </form>
-
-
-
-    <div class="auth-footer">
-
-        Already have an account?
-
-        <a href="/login">
-            Log in
-        </a>
-
+    <div class="panel auth-card reveal delay-1">
+        <div class="eyebrow">Create account</div>
+        <h1>Join the hub.</h1>
+        <p>It takes less than a minute to create your student account.</p>
+        <form id="register-form">
+            <div class="field"><label for="username">Username</label><input id="username" type="text" minlength="3" maxlength="30" pattern="[A-Za-z0-9_]{3,30}" autocomplete="username" placeholder="letters, numbers, underscores" required><span class="muted" style="font-size:.76rem;">3–30 characters.</span></div>
+            <div class="field" style="margin-top:14px;"><label for="password">Password</label><input id="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="At least 8 characters" required></div>
+            <div class="field" style="margin-top:14px;"><label for="confirm-password">Confirm password</label><input id="confirm-password" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="Enter it again" required></div>
+            <button id="register-button" class="button button-primary" style="width:100%;margin-top:5px;" type="submit">Create account <span aria-hidden="true">↗</span></button>
+        </form>
+        <div class="auth-footer">Already have an account? <a href="/login">Log in</a></div>
     </div>
-
 </section>
-
 {% endblock %}
-
-
-
 {% block scripts %}
-
 <script>
-
-document.addEventListener(
-    "DOMContentLoaded",
-    async function () {
-
-
-        /*
-         * Check whether the user is
-         * already authenticated.
-         */
-
-        const existingUser =
-            await refreshNavigation();
-
-
-        if (existingUser) {
-
-            window.location.href =
-                "/";
-
-            return;
-        }
-
-
-
-        /*
-         * Registration form.
-         */
-
-        document
-            .getElementById(
-                "register-form"
-            )
-            .addEventListener(
-                "submit",
-                async function (event) {
-
-                    event.preventDefault();
-
-
-                    const username =
-                        document.getElementById(
-                            "username"
-                        )
-                        .value
-                        .trim();
-
-
-                    const password =
-                        document.getElementById(
-                            "password"
-                        )
-                        .value;
-
-
-                    const confirmPassword =
-                        document.getElementById(
-                            "confirm-password"
-                        )
-                        .value;
-
-
-
-                    /*
-                     * Check passwords locally
-                     * before contacting backend.
-                     */
-
-                    if (
-                        password !==
-                        confirmPassword
-                    ) {
-
-                        showToast(
-                            "Passwords do not match.",
-                            "error"
-                        );
-
-                        return;
-                    }
-
-
-
-                    const button =
-                        document.getElementById(
-                            "register-button"
-                        );
-
-
-                    button.disabled = true;
-
-                    button.textContent =
-                        "Creating...";
-
-
-
-                    try {
-
-
-                        const response =
-                            await fetch(
-                                "/register",
-                                {
-                                    method:
-                                        "POST",
-
-                                    credentials:
-                                        "same-origin",
-
-                                    headers: {
-                                        "Content-Type":
-                                            "application/json"
-                                    },
-
-                                    body:
-                                        JSON.stringify({
-
-                                            username:
-                                                username,
-
-                                            password:
-                                                password
-                                        })
-                                }
-                            );
-
-
-
-                        if (
-                            !response.ok
-                        ) {
-
-                            throw new Error(
-                                await getApiError(
-                                    response
-                                )
-                            );
-                        }
-
-
-
-                        /*
-                         * Registration completed.
-                         * Send the user to login.
-                         */
-
-                        window.location.href =
-                            "/login?registered=1";
-
-
-                    } catch (error) {
-
-                        showToast(
-                            error.message ||
-                            "Unable to create account.",
-                            "error"
-                        );
-
-
-                        button.disabled =
-                            false;
-
-                        button.textContent =
-                            "Create account";
-                    }
-
-                }
-            );
-
-    }
-
-);
-
+document.addEventListener("DOMContentLoaded", async () => {
+    const existingUser=await refreshNavigation(); if(existingUser){window.location.href="/";return;}
+    document.getElementById("register-form").addEventListener("submit",async event=>{
+        event.preventDefault();
+        const username=document.getElementById("username").value.trim(); const password=document.getElementById("password").value; const confirmPassword=document.getElementById("confirm-password").value;
+        if(password!==confirmPassword){showToast("Passwords do not match.","error");return;}
+        const button=document.getElementById("register-button"); button.disabled=true; button.textContent="Creating…";
+        try{
+            const response=await fetch("/register",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"same-origin",body:JSON.stringify({username,password})});
+            if(!response.ok) throw new Error(await getApiError(response));
+            window.location.href=`/login?registered=1&next=${encodeURIComponent("/")}`;
+        }catch(error){showToast(error.message,"error");}
+        finally{button.disabled=false;button.textContent="Create account ↗";}
+    });
+});
 </script>
-
 {% endblock %}

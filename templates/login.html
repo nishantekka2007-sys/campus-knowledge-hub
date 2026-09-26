@@ -1,307 +1,50 @@
 {% extends "base.html" %}
-
-{% block title %}
-Log in · Campus Knowledge Hub
-{% endblock %}
-
-
+{% block title %}Log in · Campus Knowledge Hub{% endblock %}
 {% block content %}
-
-<section class="auth-card card">
-
-    <div class="eyebrow">
-        Secure access
-    </div>
-
-
-    <h1>
-        Welcome back
-    </h1>
-
-
-    <p>
-        Sign in to manage your resources,
-        favorites and account.
-    </p>
-
-
-    <div
-        id="registered-message"
-        class="card panel"
-        style="margin-bottom:16px;"
-        hidden
-    >
-        Account created successfully.
-        You can log in now.
-    </div>
-
-
-    <form id="login-form">
-
-
-        <div class="field">
-
-            <label for="username">
-                Username
-            </label>
-
-            <input
-                id="username"
-                name="username"
-                type="text"
-                minlength="3"
-                maxlength="30"
-                autocomplete="username"
-                placeholder="Enter your username"
-                required
-            >
-
+<section class="auth-layout">
+    <div class="panel auth-visual reveal">
+        <div>
+            <div class="eyebrow">Welcome back</div>
+            <h2>Your campus,<br>in one flow.</h2>
+            <p>Pick up where you left off. Search resources, save your favorites and keep your learning space organized.</p>
         </div>
-
-
-        <div class="field">
-
-            <label for="password">
-                Password
-            </label>
-
-            <input
-                id="password"
-                name="password"
-                type="password"
-                minlength="8"
-                maxlength="128"
-                autocomplete="current-password"
-                placeholder="Enter your password"
-                required
-            >
-
+        <div class="auth-quote">
+            <div><small>Fast access</small><strong>Notes →</strong></div>
+            <div><small>Personal space</small><strong>Favorites →</strong></div>
         </div>
-
-
-        <button
-            id="login-button"
-            class="button button-primary"
-            type="submit"
-            style="width:100%;"
-        >
-            Log in
-        </button>
-
-
-    </form>
-
-
-    <div class="auth-footer">
-
-        Don't have an account?
-
-        <a href="/register">
-            Create one
-        </a>
-
     </div>
-
+    <div class="panel auth-card reveal delay-1">
+        <div class="eyebrow">Secure access</div>
+        <h1>Log in</h1>
+        <p>Enter your Campus Knowledge Hub credentials.</p>
+        <div id="registered-message" class="success-note" hidden>Account created successfully. You can log in now.</div>
+        <form id="login-form">
+            <div class="field"><label for="username">Username</label><input id="username" name="username" type="text" minlength="3" maxlength="30" autocomplete="username" placeholder="Your username" required></div>
+            <div class="field" style="margin-top:14px;"><label for="password">Password</label><input id="password" name="password" type="password" minlength="8" maxlength="128" autocomplete="current-password" placeholder="Your password" required></div>
+            <button id="login-button" class="button button-primary" style="width:100%;margin-top:5px;" type="submit">Log in <span aria-hidden="true">↗</span></button>
+        </form>
+        <div class="auth-footer">New here? <a href="/register">Create your account</a></div>
+    </div>
 </section>
-
 {% endblock %}
-
-
-
 {% block scripts %}
-
 <script>
-
-document.addEventListener(
-    "DOMContentLoaded",
-    async function () {
-
-
-        /*
-         * Check whether the user
-         * is already logged in.
-         */
-
-        const existingUser =
-            await refreshNavigation();
-
-
-        if (existingUser) {
-
-            window.location.href =
-                "/";
-
-            return;
-        }
-
-
-
-        /*
-         * Show registration success
-         * message after redirect.
-         */
-
-        const params =
-            new URLSearchParams(
-                window.location.search
-            );
-
-
-        if (
-            params.get(
-                "registered"
-            ) === "1"
-        ) {
-
-            document.getElementById(
-                "registered-message"
-            ).hidden = false;
-        }
-
-
-
-        /*
-         * Determine where the user
-         * should go after login.
-         */
-
-        let next =
-            params.get(
-                "next"
-            ) || "/";
-
-
-        /*
-         * Prevent external redirects.
-         */
-
-        if (
-            !next.startsWith("/") ||
-            next.startsWith("//")
-        ) {
-
-            next = "/";
-        }
-
-
-
-        /*
-         * Login form.
-         */
-
-        document
-            .getElementById(
-                "login-form"
-            )
-            .addEventListener(
-                "submit",
-                async function (event) {
-
-                    event.preventDefault();
-
-
-                    const button =
-                        document.getElementById(
-                            "login-button"
-                        );
-
-
-                    const username =
-                        document.getElementById(
-                            "username"
-                        )
-                        .value
-                        .trim();
-
-
-                    const password =
-                        document.getElementById(
-                            "password"
-                        )
-                        .value;
-
-
-                    button.disabled = true;
-
-                    button.textContent =
-                        "Signing in...";
-
-
-                    try {
-
-
-                        const response =
-                            await fetch(
-                                "/login",
-                                {
-                                    method:
-                                        "POST",
-
-                                    credentials:
-                                        "same-origin",
-
-                                    headers: {
-                                        "Content-Type":
-                                            "application/json"
-                                    },
-
-                                    body:
-                                        JSON.stringify({
-
-                                            username:
-                                                username,
-
-                                            password:
-                                                password
-                                        })
-                                }
-                            );
-
-
-                        if (
-                            !response.ok
-                        ) {
-
-                            throw new Error(
-                                await getApiError(
-                                    response
-                                )
-                            );
-                        }
-
-
-                        /*
-                         * Backend sets the
-                         * HTTP-only session cookie.
-                         */
-
-                        window.location.href =
-                            next;
-
-
-                    } catch (error) {
-
-                        showToast(
-                            error.message ||
-                            "Unable to log in.",
-                            "error"
-                        );
-
-
-                        button.disabled =
-                            false;
-
-                        button.textContent =
-                            "Log in";
-                    }
-
-                }
-            );
-
-    }
-
-);
-
+document.addEventListener("DOMContentLoaded", async () => {
+    const existingUser = await refreshNavigation();
+    if (existingUser) { window.location.href="/"; return; }
+    const params = new URLSearchParams(location.search);
+    if (params.get("registered") === "1") document.getElementById("registered-message").hidden=false;
+    let next=params.get("next") || "/"; if(!next.startsWith("/") || next.startsWith("//")) next="/";
+    document.getElementById("login-form").addEventListener("submit", async event => {
+        event.preventDefault();
+        const button=document.getElementById("login-button"); button.disabled=true; button.textContent="Signing in…";
+        try {
+            const response=await fetch("/login",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"same-origin",body:JSON.stringify({username:document.getElementById("username").value.trim(),password:document.getElementById("password").value})});
+            if(!response.ok) throw new Error(await getApiError(response));
+            showToast("Welcome back.","success"); window.setTimeout(()=>window.location.href=next,250);
+        } catch(error){showToast(error.message,"error");}
+        finally{button.disabled=false;button.textContent="Log in ↗";}
+    });
+});
 </script>
-
 {% endblock %}

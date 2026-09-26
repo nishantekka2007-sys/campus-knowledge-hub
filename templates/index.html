@@ -1,1613 +1,374 @@
 {% extends "base.html" %}
+{% block title %}Campus Knowledge Hub · Learn. Explore. Share.{% endblock %}
+{% block content %}
+<section class="hero-grid">
+    <div class="hero-copy reveal">
+        <div class="eyebrow">A living campus library</div>
+        <h1>Learn.<span>Explore.</span><span>Share.</span></h1>
+        <p>One space for notes, courses, documentation, links and the resources students actually need. Discover something useful, save it, and pass it on.</p>
+        <div class="button-row" style="margin-top:22px;">
+            <a href="#library" class="button button-primary">Explore resources <span aria-hidden="true">↘</span></a>
+            <button id="hero-add" class="button" type="button" hidden>Add a resource <span aria-hidden="true">+</span></button>
+        </div>
+    </div>
+    <div class="hero-side reveal delay-1">
+        <div class="hero-visual panel">
+            <span class="visual-number">CKH / 01</span>
+            <span class="orbit a"></span><span class="orbit b"></span><span class="orbit c"></span>
+            <span class="hero-core"></span>
+            <span class="visual-label">knowledge in motion</span>
+        </div>
+        <div class="panel panel-pad reveal delay-2">
+            <div class="eyebrow">Live library</div>
+            <p style="margin:10px 0 0;color:var(--muted);">Search the campus collection, filter by type, save favorites and open learning material without leaving the flow.</p>
+            <div class="stats-row">
+                <div class="stat"><small>Resources</small><strong id="hero-total">—</strong></div>
+                <div class="stat"><small>PDFs</small><strong id="hero-pdfs">—</strong></div>
+                <div class="stat"><small>Saved</small><strong id="hero-favorites">—</strong></div>
+            </div>
+        </div>
+    </div>
+</section>
 
-{% block title %}
-Campus Knowledge Hub
+<section id="library" class="section reveal delay-2">
+    <div class="section-head">
+        <div>
+            <div class="eyebrow">Discover</div>
+            <h2>Find something worth keeping.</h2>
+            <p id="library-summary">Loading the latest resources…</p>
+        </div>
+        <div class="button-row">
+            <button id="refresh-button" class="button button-ghost button-small" type="button">Refresh</button>
+            <button id="open-create" class="button button-primary button-small" type="button" hidden>＋ Add resource</button>
+        </div>
+    </div>
+
+    <div class="panel panel-pad">
+        <div class="search-wrap">
+            <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.6"/><path d="M16.5 16.5 21 21" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            <input id="search" class="search-input" type="search" placeholder="Search notes, subjects, courses, PDFs…" autocomplete="off">
+        </div>
+        <div id="quick-filters" class="quick-filters" aria-label="Quick filters">
+            <button class="chip active" data-type="">All resources</button>
+        </div>
+        <div class="toolbar" style="margin-top:14px;">
+            <div class="field">
+                <label for="resource-type">Resource type</label>
+                <select id="resource-type"><option value="">Everything</option></select>
+            </div>
+            <div class="field">
+                <label for="favorite-filter">Collection</label>
+                <select id="favorite-filter"><option value="all">All resources</option><option value="true">Favorites only</option></select>
+            </div>
+            <div class="field">
+                <label for="sort-by">Sort by</label>
+                <select id="sort-by"><option value="id">Newest</option><option value="title">Title</option></select>
+            </div>
+            <div class="field">
+                <label for="order">Order</label>
+                <select id="order"><option value="desc">Descending</option><option value="asc">Ascending</option></select>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div id="resource-loading" class="loading-grid">
+        <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+    </div>
+    <div id="resource-grid" class="resource-grid" hidden></div>
+    <div id="empty-state" class="empty" hidden>
+        <div class="eyebrow" style="justify-content:center;">Nothing here yet</div>
+        <h3 id="empty-title" style="margin:10px 0 4px;font-size:1.4rem;letter-spacing:-.03em;">No resources found</h3>
+        <p id="empty-text" style="margin:0 auto 16px;max-width:520px;">Try another search or clear the filters.</p>
+        <button id="clear-filters" class="button button-ghost button-small" type="button">Clear filters</button>
+    </div>
+    <div id="library-footer" class="section-head" style="margin-top:17px;align-items:center;">
+        <span id="page-summary" class="muted" style="font-size:.85rem;"></span>
+        <div id="pagination" class="pagination" hidden style="margin:0;">
+            <button id="previous-page" class="button button-ghost button-small" type="button">← Prev</button>
+            <span id="page-label" class="chip page-label"></span>
+            <button id="next-page" class="button button-ghost button-small" type="button">Next →</button>
+        </div>
+    </div>
+</section>
+
+<div id="create-modal" class="modal-backdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="create-modal-title">
+        <div class="modal-head">
+            <div><div class="eyebrow">Share knowledge</div><h2 id="create-modal-title">Add a new resource</h2></div>
+            <button class="modal-close" data-close-modal="create-modal" type="button" aria-label="Close">×</button>
+        </div>
+        <form id="create-form" class="modal-body">
+            <div class="grid-2" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;">
+                <div class="field"><label for="create-subject">Subject</label><input id="create-subject" required placeholder="e.g. Data Structures"></div>
+                <div class="field"><label for="create-title">Title</label><input id="create-title" required placeholder="e.g. Graph Algorithms Notes"></div>
+                <div class="field"><label for="create-type">Resource type</label><input id="create-type" required placeholder="Notes, Course, PDF…"></div>
+                <div class="field"><label for="create-link">Resource link</label><input id="create-link" type="url" required placeholder="https://…"></div>
+            </div>
+            <div class="field" style="margin-top:12px;"><label for="create-description">Description</label><textarea id="create-description" maxlength="500" placeholder="What will another student find here?"></textarea></div>
+            <div class="field" style="margin-top:12px;"><label for="create-file">Attach PDF <span class="muted">(optional, max 10 MB)</span></label><input id="create-file" type="file" accept=".pdf,application/pdf"></div>
+            <div class="button-row" style="margin-top:18px;"><button id="create-cancel" class="button button-ghost" type="button">Cancel</button><button id="create-button" class="button button-primary" type="submit">Create resource</button></div>
+        </form>
+    </div>
+</div>
+
+<div id="detail-modal" class="modal-backdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="detail-title">
+        <div class="modal-head"><div><div class="eyebrow" id="detail-eyebrow">Resource</div></div><button class="modal-close" data-close-modal="detail-modal" type="button" aria-label="Close">×</button></div>
+        <div class="modal-body">
+            <div id="detail-type" class="resource-type">RESOURCE</div>
+            <h2 id="detail-title" class="detail-title"></h2>
+            <p id="detail-subject" class="muted" style="margin:0;"></p>
+            <div id="detail-meta" class="detail-meta"></div>
+            <p id="detail-description" class="detail-note"></p>
+            <div id="detail-file" class="resource-file" hidden></div>
+            <div class="button-row" style="margin-top:18px;">
+                <a id="detail-link" class="button button-primary" href="#" target="_blank" rel="noopener">Open resource ↗</a>
+                <button id="detail-favorite" class="button button-ghost" type="button">☆ Save</button>
+                <button id="detail-edit" class="button button-ghost" type="button" hidden>Edit</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="edit-modal" class="modal-backdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="edit-modal-title">
+        <div class="modal-head"><div><div class="eyebrow">Refine</div><h2 id="edit-modal-title">Edit resource</h2></div><button class="modal-close" data-close-modal="edit-modal" type="button" aria-label="Close">×</button></div>
+        <form id="edit-form" class="modal-body">
+            <input type="hidden" id="edit-id">
+            <div class="grid-2" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;">
+                <div class="field"><label for="edit-subject">Subject</label><input id="edit-subject" required></div>
+                <div class="field"><label for="edit-title-field">Title</label><input id="edit-title-field" required></div>
+                <div class="field"><label for="edit-type">Resource type</label><input id="edit-type" required></div>
+                <div class="field"><label for="edit-link">Resource link</label><input id="edit-link" type="url" required></div>
+            </div>
+            <div class="field" style="margin-top:12px;"><label for="edit-description">Description</label><textarea id="edit-description" maxlength="500"></textarea></div>
+            <div class="button-row" style="margin-top:18px;"><button class="button button-ghost" data-close-modal="edit-modal" type="button">Cancel</button><button id="edit-button" class="button button-primary" type="submit">Save changes</button></div>
+        </form>
+    </div>
+</div>
+
 {% endblock %}
 
-{% block content %}
-
-<section class="hero">
-
-    <div class="eyebrow">
-        Centralized learning resources
-    </div>
-
-    <h1>
-        Learn. Share. Grow.
-    </h1>
-
-    <p>
-        Campus Knowledge Hub brings college notes, courses,
-        documentation and learning resources together in one place.
-    </p>
-
-</section>
-
-
-<section
-    id="create-section"
-    class="section"
-    hidden
->
-
-    <div class="card panel">
-
-        <div>
-            <h2 style="margin:0 0 4px;">
-                Add a resource
-            </h2>
-
-            <p class="muted" style="margin:0;">
-                Share a useful learning resource with the campus community.
-            </p>
-        </div>
-
-        <form
-            id="create-form"
-            style="margin-top:18px;"
-        >
-
-            <div class="grid-2">
-
-                <div class="field">
-                    <label for="create-subject">
-                        Subject
-                    </label>
-
-                    <input
-                        id="create-subject"
-                        type="text"
-                        required
-                    >
-                </div>
-
-
-                <div class="field">
-                    <label for="create-title">
-                        Title
-                    </label>
-
-                    <input
-                        id="create-title"
-                        type="text"
-                        required
-                    >
-                </div>
-
-
-                <div class="field">
-                    <label for="create-type">
-                        Resource type
-                    </label>
-
-                    <input
-                        id="create-type"
-                        type="text"
-                        placeholder="Notes, Course, Documentation..."
-                        required
-                    >
-                </div>
-
-
-                <div class="field">
-                    <label for="create-link">
-                        Resource link
-                    </label>
-
-                    <input
-                        id="create-link"
-                        type="url"
-                        placeholder="https://..."
-                        required
-                    >
-                </div>
-
-            </div>
-
-
-            <div class="field">
-
-                <label for="create-description">
-                    Description
-                </label>
-
-                <textarea
-                    id="create-description"
-                    maxlength="500"
-                    placeholder="Describe what students will find here."
-                ></textarea>
-
-            </div>
-
-
-            <div class="field">
-
-                <label for="create-file">
-                    Attach PDF
-                </label>
-
-                <input
-                    id="create-file"
-                    type="file"
-                    accept=".pdf,application/pdf"
-                >
-
-                <span class="muted">
-                    Optional. PDF only, maximum 10 MB.
-                </span>
-
-            </div>
-
-
-            <button
-                id="create-button"
-                class="button button-primary"
-                type="submit"
-            >
-                Create resource
-            </button>
-
-        </form>
-
-    </div>
-
-</section>
-
-
-<section class="section">
-
-    <div class="card panel">
-
-        <div
-            style="
-                display:flex;
-                justify-content:space-between;
-                gap:15px;
-                align-items:center;
-                flex-wrap:wrap;
-            "
-        >
-
-            <div>
-
-                <h2 style="margin:0 0 4px;">
-                    Resource library
-                </h2>
-
-                <p
-                    id="library-summary"
-                    class="muted"
-                    style="margin:0;"
-                >
-                    Loading resources...
-                </p>
-
-            </div>
-
-
-            <button
-                id="refresh-button"
-                class="button button-ghost"
-                type="button"
-            >
-                Refresh
-            </button>
-
-        </div>
-
-
-        <form
-            id="filter-form"
-            class="toolbar"
-            style="margin-top:18px;"
-        >
-
-            <div class="field">
-
-                <label for="search">
-                    Search
-                </label>
-
-                <input
-                    id="search"
-                    type="search"
-                    placeholder="Search resources..."
-                >
-
-            </div>
-
-
-            <div class="field">
-
-                <label for="resource-type">
-                    Type
-                </label>
-
-                <input
-                    id="resource-type"
-                    type="text"
-                    placeholder="Any type"
-                >
-
-            </div>
-
-
-            <div class="field">
-
-                <label for="favorite-filter">
-                    Favorites
-                </label>
-
-                <select id="favorite-filter">
-
-                    <option value="all">
-                        All
-                    </option>
-
-                    <option value="true">
-                        Favorites only
-                    </option>
-
-                </select>
-
-            </div>
-
-
-            <div class="field">
-
-                <label for="sort-by">
-                    Sort
-                </label>
-
-                <select id="sort-by">
-
-                    <option value="id">
-                        ID
-                    </option>
-
-                    <option value="title">
-                        Title
-                    </option>
-
-                </select>
-
-            </div>
-
-
-            <div class="field">
-
-                <label for="order">
-                    Order
-                </label>
-
-                <select id="order">
-
-                    <option value="asc">
-                        Ascending
-                    </option>
-
-                    <option value="desc">
-                        Descending
-                    </option>
-
-                </select>
-
-            </div>
-
-        </form>
-
-
-        <div
-            class="button-row"
-            style="margin-top:12px;"
-        >
-
-            <button
-                id="apply-filter"
-                class="button button-primary"
-                type="button"
-            >
-                Apply
-            </button>
-
-            <button
-                id="reset-filter"
-                class="button button-ghost"
-                type="button"
-            >
-                Reset
-            </button>
-
-        </div>
-
-    </div>
-
-</section>
-
-
-<section class="section">
-
-    <div
-        id="resource-grid"
-        class="resource-grid"
-    ></div>
-
-
-    <div
-        id="empty-state"
-        class="empty"
-        hidden
-    >
-
-        <strong id="empty-title">
-            No resources found
-        </strong>
-
-        <div
-            id="empty-text"
-            style="margin-top:6px;"
-        >
-            Try another search.
-        </div>
-
-    </div>
-
-
-    <div
-        style="
-            display:flex;
-            justify-content:space-between;
-            gap:15px;
-            margin-top:18px;
-        "
-    >
-
-        <span
-            id="page-summary"
-            class="muted"
-        ></span>
-
-        <span
-            id="page-status"
-            class="muted"
-        ></span>
-
-    </div>
-
-
-    <div
-        id="pagination"
-        class="pagination"
-        hidden
-    >
-
-        <button
-            id="previous-page"
-            class="button button-ghost"
-            type="button"
-        >
-            Previous
-        </button>
-
-        <span
-            id="page-label"
-            class="badge badge-muted"
-        ></span>
-
-        <button
-            id="next-page"
-            class="button button-ghost"
-            type="button"
-        >
-            Next
-        </button>
-
-    </div>
-
-</section>
-
-
+{% block scripts %}
 <script>
-
 document.addEventListener("DOMContentLoaded", async () => {
-
-    const currentUser =
-        await refreshNavigation();
-
-    const state = {
-        page: 1,
-        limit: 10,
-        pages: 0,
-        total: 0,
-        keyword: "",
-        type: "",
-        favorite: false,
-        sortBy: "id",
-        order: "asc",
-        loading: false
+    const state = { user:null, page:1, pages:0, total:0, resources:[], currentDetailId:null, searchTimer:null };
+    const $ = id => document.getElementById(id);
+    const els = {
+        grid: $("resource-grid"), loading: $("resource-loading"), empty: $("empty-state"), summary: $("library-summary"),
+        pageSummary: $("page-summary"), pagination: $("pagination"), pageLabel: $("page-label"), previous: $("previous-page"), next: $("next-page"),
+        search: $("search"), type: $("resource-type"), favorite: $("favorite-filter"), sort: $("sort-by"), order: $("order")
     };
 
+    state.user = await refreshNavigation();
+    if (state.user) { $("open-create").hidden = false; $("hero-add").hidden = false; }
 
-    const createSection =
-        document.getElementById("create-section");
+    const fmtSize = bytes => {
+        if (!Number.isFinite(bytes)) return "PDF";
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+        return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+    };
+    const fmtDate = value => {
+        const d = new Date(value);
+        return Number.isNaN(d.getTime()) ? "Unknown date" : d.toLocaleDateString(undefined, {day:"2-digit", month:"short", year:"numeric"});
+    };
+    const isOwner = resource => state.user && (state.user.role === "admin" || Number(resource.created_by) === Number(state.user.id));
 
-    if (currentUser) {
-        createSection.hidden = false;
+    function uniqueTypes(items) {
+        return [...new Set(items.map(item => String(item.resource_type || "").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+    }
+    function updateTypeFilters(items) {
+        const types = uniqueTypes(items);
+        const current = els.type.value;
+        els.type.innerHTML = `<option value="">Everything</option>` + types.map(type => `<option value="${escapeHtml(type)}">${escapeHtml(type)}</option>`).join("");
+        if (types.includes(current)) els.type.value = current;
+        $("quick-filters").innerHTML = `<button class="chip ${!current ? "active" : ""}" data-type="">All resources</button>` + types.slice(0,7).map(type => `<button class="chip ${current === type ? "active" : ""}" data-type="${escapeHtml(type)}">${escapeHtml(type)}</button>`).join("");
+        $("quick-filters").querySelectorAll("[data-type]").forEach(button => button.addEventListener("click", () => { els.type.value = button.dataset.type; applyFilters(); }));
     }
 
-
-    const grid =
-        document.getElementById("resource-grid");
-
-    const emptyState =
-        document.getElementById("empty-state");
-
-    const pagination =
-        document.getElementById("pagination");
-
-
-    function bytes(size) {
-
-        if (size === null || size === undefined) {
-            return "";
-        }
-
-        if (size < 1024) {
-            return size + " B";
-        }
-
-        if (size < 1024 * 1024) {
-            return (size / 1024).toFixed(1) + " KB";
-        }
-
-        return (size / (1024 * 1024)).toFixed(1) + " MB";
+    function filteredClient(items) {
+        const type = els.type.value.trim().toLowerCase();
+        const favorite = els.favorite.value === "true";
+        return items.filter(r => (!type || String(r.resource_type || "").toLowerCase() === type) && (!favorite || r.is_favorite));
     }
 
-
-    function canModify(resource) {
-
-        return Boolean(
-            currentUser &&
-            (
-                currentUser.role === "admin" ||
-                Number(resource.created_by) ===
-                Number(currentUser.id)
-            )
-        );
-    }
-
-
-    function renderResource(resource) {
-
-        const favorite =
-            resource.is_favorite;
-
-        let actions = "";
-
-        if (currentUser && canModify(resource)) {
-
-            actions += `
-                <button
-                    class="button button-small button-ghost"
-                    data-action="edit"
-                    data-id="${resource.id}"
-                    type="button"
-                >
-                    Edit
-                </button>
-            `;
-
-            actions += `
-                <button
-                    class="button button-small button-ghost"
-                    data-action="file"
-                    data-id="${resource.id}"
-                    type="button"
-                >
-                    ${resource.has_file ? "Replace PDF" : "Attach PDF"}
-                </button>
-            `;
-
-            actions += `
-                <input
-                    id="file-${resource.id}"
-                    data-file-input="${resource.id}"
-                    type="file"
-                    accept=".pdf,application/pdf"
-                    hidden
-                >
-            `;
-
-            if (resource.has_file) {
-
-                actions += `
-                    <button
-                        class="button button-small button-danger"
-                        data-action="delete-file"
-                        data-id="${resource.id}"
-                        type="button"
-                    >
-                        Delete PDF
-                    </button>
-                `;
-            }
-        }
-
-
-        if (
-            currentUser &&
-            currentUser.role === "admin"
-        ) {
-
-            actions += `
-                <button
-                    class="button button-small button-danger"
-                    data-action="delete-resource"
-                    data-id="${resource.id}"
-                    type="button"
-                >
-                    Delete
-                </button>
-            `;
-        }
-
-
-        let fileBox = "";
-
-        if (resource.has_file) {
-
-            fileBox = `
-                <div class="file-box">
-
-                    <span class="file-name">
-                        ${escapeHtml(resource.file_name)}
-                    </span>
-
-                    <div class="button-row">
-
-                        <a
-                            class="button button-small button-primary"
-                            href="/resources/${resource.id}/file"
-                        >
-                            Download PDF
-                        </a>
-
-                        <span class="muted">
-                            ${bytes(resource.file_size)}
-                        </span>
-
-                    </div>
-
-                </div>
-            `;
-        }
-
-
-        return `
-            <article class="card resource-card">
-
-                <div class="resource-top">
-
-                    <div>
-
-                        <div class="eyebrow">
-                            ${escapeHtml(resource.subject)}
-                        </div>
-
-                        <h3 class="resource-title">
-                            ${escapeHtml(resource.title)}
-                        </h3>
-
-                    </div>
-
-
-                    ${
-                        currentUser
-                        ?
-                        `
-                        <button
-                            class="favorite ${favorite ? "active" : ""}"
-                            data-action="favorite"
-                            data-id="${resource.id}"
-                            type="button"
-                        >
-                            ${favorite ? "★" : "☆"}
-                        </button>
-                        `
-                        :
-                        ""
-                    }
-
-                </div>
-
-
-                <div class="resource-meta">
-
-                    <span class="badge">
-                        ${escapeHtml(resource.resource_type)}
-                    </span>
-
-                    ${
-                        resource.created_by
-                        ?
-                        `
-                        <span class="badge badge-muted">
-                            Member #${resource.created_by}
-                        </span>
-                        `
-                        :
-                        ""
-                    }
-
-                </div>
-
-
-                <div class="resource-body">
-
-                    <p class="resource-description">
-                        ${escapeHtml(
-                            resource.description ||
-                            "No description provided."
-                        )}
-                    </p>
-
-                    ${fileBox}
-
-                </div>
-
-
-                <div class="resource-footer">
-
-                    <div class="resource-actions">
-
-                        <a
-                            class="button button-small button-primary"
-                            href="${escapeHtml(resource.link)}"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            Open resource
-                        </a>
-
-                        ${actions}
-
-                    </div>
-
-                </div>
-
-            </article>
+    function cardTemplate(resource, index) {
+        const canModify = isOwner(resource);
+        const fileHtml = resource.has_file ? `<div class="resource-file"><div><strong>${escapeHtml(resource.file_name || "Attached PDF")}</strong><span class="muted" style="font-size:.7rem;">${fmtSize(resource.file_size)}</span></div><a class="button button-small button-ghost" href="/resources/${resource.id}/file" target="_blank" rel="noopener">PDF ↗</a></div>` : "";
+        const actionHtml = `
+            <button class="button button-small button-ghost" data-view="${resource.id}" type="button">Open</button>
+            <a class="button button-small button-ghost" href="${escapeHtml(resource.link)}" target="_blank" rel="noopener">Link ↗</a>
+            ${canModify ? `<button class="button button-small button-ghost" data-edit="${resource.id}" type="button">Edit</button><button class="button button-small button-danger" data-delete-pdf="${resource.id}" type="button" ${resource.has_file ? "" : "hidden"}>Remove PDF</button><label class="button button-small button-ghost" style="cursor:pointer;">${resource.has_file ? "Replace PDF" : "Attach PDF"}<input type="file" data-upload="${resource.id}" accept=".pdf,application/pdf" hidden></label>` : ""}
+            ${state.user?.role === "admin" ? `<button class="button button-small button-danger" data-delete="${resource.id}" type="button">Delete</button>` : ""}
         `;
+        return `<article class="resource-card" data-resource-card="${resource.id}">
+            <div class="resource-top"><div><span class="resource-type">${escapeHtml(resource.resource_type || "Resource")}</span><span class="resource-index" style="margin-left:8px;">#${String(resource.id).padStart(2,"0")}</span></div><button class="favorite ${resource.is_favorite ? "active" : ""}" data-favorite="${resource.id}" type="button" aria-label="${resource.is_favorite ? "Remove favorite" : "Add favorite"}">${resource.is_favorite ? "★" : "☆"}</button></div>
+            <div class="resource-body"><h3 class="resource-title">${escapeHtml(resource.title)}</h3><p class="resource-subject">${escapeHtml(resource.subject)}</p><p class="resource-description">${escapeHtml(resource.description || "No description provided for this resource yet.")}</p>${fileHtml}</div>
+            <div class="resource-footer"><div class="resource-meta"><span class="mini-pill">${fmtDate(resource.uploaded_at || new Date().toISOString())}</span>${resource.has_file ? `<span class="mini-pill">PDF attached</span>` : ""}</div><div class="resource-actions">${actionHtml}</div></div>
+        </article>`;
     }
 
+    function render(resources) {
+        els.loading.hidden = true;
+        els.grid.hidden = false;
+        els.grid.innerHTML = resources.map((r,i)=>cardTemplate(r,i)).join("");
+        els.empty.hidden = resources.length !== 0;
+        els.grid.hidden = resources.length === 0;
+        $("empty-title").textContent = state.total ? "No resources match this view" : "The library is waiting";
+        $("empty-text").textContent = state.total ? "Try another search, change the type filter, or clear your saved-only view." : "Be the first to add a useful note, course or guide to the campus library.";
+        els.pagination.hidden = state.pages <= 1;
+        els.pageLabel.textContent = state.pages ? `Page ${state.page} / ${state.pages}` : "";
+        els.previous.disabled = state.page <= 1;
+        els.next.disabled = state.page >= state.pages;
+        els.pageSummary.textContent = state.total ? `Showing ${((state.page-1)*10)+1}–${Math.min(state.page*10,state.total)} of ${state.total}` : "";
+        els.summary.textContent = state.total ? `${state.total} resource${state.total===1?"":"s"} in the library` : "No resources yet";
+        $("hero-total").textContent = state.total || 0;
+        $("hero-pdfs").textContent = state.resources.filter(r=>r.has_file).length;
+        $("hero-favorites").textContent = state.resources.filter(r=>r.is_favorite).length;
+        $("quick-filters").querySelectorAll(".chip").forEach(button => button.classList.toggle("active", button.dataset.type === els.type.value));
+        els.grid.querySelectorAll(".resource-card").forEach(card => {
+            card.addEventListener("pointermove", event => { const rect=card.getBoundingClientRect(); card.style.setProperty("--mx",`${((event.clientX-rect.left)/rect.width)*100}%`); card.style.setProperty("--my",`${((event.clientY-rect.top)/rect.height)*100}%`); });
+        });
+    }
 
     async function loadResources() {
-
-        if (state.loading) {
-            return;
-        }
-
-        state.loading = true;
-
-        document.getElementById("page-status")
-            .textContent = "Loading...";
-
-
-        const params =
-            new URLSearchParams();
-
-        params.set(
-            "page",
-            state.page
-        );
-
-        params.set(
-            "limit",
-            state.limit
-        );
-
-        params.set(
-            "sort_by",
-            state.sortBy
-        );
-
-        params.set(
-            "order",
-            state.order
-        );
-
-
-        let endpoint =
-            "/resources";
-
-
-        if (state.keyword) {
-
-            endpoint =
-                "/resources/search/" +
-                encodeURIComponent(
-                    state.keyword
-                );
-
-        } else {
-
-            if (state.favorite) {
-                params.set(
-                    "favorite",
-                    "true"
-                );
-            }
-
-            if (state.type) {
-                params.set(
-                    "type",
-                    state.type
-                );
-            }
-        }
-
-
+        els.loading.hidden = false; els.grid.hidden = true;
+        els.loading.innerHTML = `<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>`;
         try {
-
-            const response =
-                await fetch(
-                    endpoint +
-                    "?" +
-                    params.toString(),
-                    {
-                        credentials:
-                            "same-origin"
-                    }
-                );
-
-
-            if (!response.ok) {
-                throw new Error(
-                    await getApiError(response)
-                );
-            }
-
-
-            const resources =
-                await response.json();
-
-
-            state.total =
-                Number(
-                    response.headers.get(
-                        "X-Total"
-                    ) || resources.length
-                );
-
-
-            state.pages =
-                Number(
-                    response.headers.get(
-                        "X-Pages"
-                    ) ||
-                    (resources.length ? 1 : 0)
-                );
-
-
-            grid.innerHTML =
-                resources
-                    .map(renderResource)
-                    .join("");
-
-
-            emptyState.hidden =
-                resources.length !== 0;
-
-
-            if (!resources.length) {
-
-                document.getElementById(
-                    "empty-title"
-                ).textContent =
-                    state.keyword
-                    ? "No matching resources"
-                    : "No resources found";
-
-                document.getElementById(
-                    "empty-text"
-                ).textContent =
-                    currentUser
-                    ? "Try another filter or add a resource."
-                    : "Try another search or log in to contribute.";
-            }
-
-
-            const first =
-                resources.length
-                ? ((state.page - 1) * state.limit) + 1
-                : 0;
-
-
-            const last =
-                resources.length
-                ? first + resources.length - 1
-                : 0;
-
-
-            document.getElementById(
-                "page-summary"
-            ).textContent =
-                state.total
-                ? `Showing ${first}–${last} of ${state.total}`
-                : "0 resources";
-
-
-            document.getElementById(
-                "library-summary"
-            ).textContent =
-                `${state.total} resource(s) available`;
-
-
-            document.getElementById(
-                "page-label"
-            ).textContent =
-                state.pages
-                ? `Page ${state.page} of ${state.pages}`
-                : "Page 0 of 0";
-
-
-            pagination.hidden =
-                state.pages <= 1;
-
-
-            document.getElementById(
-                "previous-page"
-            ).disabled =
-                state.page <= 1;
-
-
-            document.getElementById(
-                "next-page"
-            ).disabled =
-                state.page >= state.pages;
-
-
+            const params = new URLSearchParams({ page:String(state.page), limit:"10", sort_by:els.sort.value, order:els.order.value });
+            const keyword = els.search.value.trim();
+            const endpoint = keyword ? `/resources/search/${encodeURIComponent(keyword)}?${params.toString()}` : `/resources?${params.toString()}`;
+            const response = await fetch(endpoint, { credentials:"same-origin" });
+            if (!response.ok) throw new Error(await getApiError(response));
+            state.resources = await response.json();
+            state.total = Number(response.headers.get("X-Total") || state.resources.length);
+            state.pages = Number(response.headers.get("X-Pages") || (state.total ? Math.ceil(state.total/10) : 0));
+            updateTypeFilters(state.resources.length ? state.resources : state.resources);
+            render(filteredClient(state.resources));
         } catch (error) {
-
-            grid.innerHTML = "";
-
-            emptyState.hidden = false;
-
-            document.getElementById(
-                "empty-title"
-            ).textContent =
-                "Unable to load resources";
-
-            document.getElementById(
-                "empty-text"
-            ).textContent =
-                error.message;
-
-        } finally {
-
-            state.loading = false;
-
-            document.getElementById(
-                "page-status"
-            ).textContent = "";
+            els.loading.hidden = true; els.grid.hidden = true; els.empty.hidden = false; $("empty-title").textContent="Could not load resources"; $("empty-text").textContent=error.message; showToast(error.message,"error");
         }
     }
 
-
-    document
-        .getElementById("apply-filter")
-        .addEventListener(
-            "click",
-            () => {
-
-                state.keyword =
-                    document
-                        .getElementById("search")
-                        .value
-                        .trim();
-
-                state.type =
-                    document
-                        .getElementById("resource-type")
-                        .value
-                        .trim();
-
-                state.favorite =
-                    document
-                        .getElementById("favorite-filter")
-                        .value === "true";
-
-                state.sortBy =
-                    document
-                        .getElementById("sort-by")
-                        .value;
-
-                state.order =
-                    document
-                        .getElementById("order")
-                        .value;
-
-                state.page = 1;
-
-                loadResources();
-            }
-        );
-
-
-    document
-        .getElementById("reset-filter")
-        .addEventListener(
-            "click",
-            () => {
-
-                document.getElementById(
-                    "search"
-                ).value = "";
-
-                document.getElementById(
-                    "resource-type"
-                ).value = "";
-
-                document.getElementById(
-                    "favorite-filter"
-                ).value = "all";
-
-                document.getElementById(
-                    "sort-by"
-                ).value = "id";
-
-                document.getElementById(
-                    "order"
-                ).value = "asc";
-
-                state.keyword = "";
-                state.type = "";
-                state.favorite = false;
-                state.sortBy = "id";
-                state.order = "asc";
-                state.page = 1;
-
-                loadResources();
-            }
-        );
-
-
-    document
-        .getElementById("refresh-button")
-        .addEventListener(
-            "click",
-            loadResources
-        );
-
-
-    document
-        .getElementById("previous-page")
-        .addEventListener(
-            "click",
-            () => {
-
-                if (state.page > 1) {
-
-                    state.page--;
-
-                    loadResources();
-                }
-            }
-        );
-
-
-    document
-        .getElementById("next-page")
-        .addEventListener(
-            "click",
-            () => {
-
-                if (state.page < state.pages) {
-
-                    state.page++;
-
-                    loadResources();
-                }
-            }
-        );
-
-
-    grid.addEventListener(
-        "click",
-        async event => {
-
-            const button =
-                event.target.closest(
-                    "[data-action]"
-                );
-
-            if (!button) {
-                return;
-            }
-
-
-            const id =
-                Number(
-                    button.dataset.id
-                );
-
-            const action =
-                button.dataset.action;
-
-
-            if (action === "favorite") {
-
-                button.disabled = true;
-
-                try {
-
-                    const response =
-                        await fetch(
-                            `/resources/${id}/favorite`,
-                            {
-                                method: "PATCH",
-                                credentials:
-                                    "same-origin"
-                            }
-                        );
-
-                    if (!response.ok) {
-                        throw new Error(
-                            await getApiError(response)
-                        );
-                    }
-
-                    await loadResources();
-
-                } catch (error) {
-
-                    showToast(
-                        error.message,
-                        "error"
-                    );
-
-                    button.disabled = false;
-                }
-
-                return;
-            }
-
-
-            if (action === "file") {
-
-                const input =
-                    document.getElementById(
-                        `file-${id}`
-                    );
-
-                input.click();
-
-                return;
-            }
-
-
-            if (action === "delete-file") {
-
-                if (
-                    !confirm(
-                        "Delete the attached PDF?"
-                    )
-                ) {
-                    return;
-                }
-
-                button.disabled = true;
-
-                try {
-
-                    const response =
-                        await fetch(
-                            `/resources/${id}/file`,
-                            {
-                                method: "DELETE",
-                                credentials:
-                                    "same-origin"
-                            }
-                        );
-
-                    if (!response.ok) {
-                        throw new Error(
-                            await getApiError(response)
-                        );
-                    }
-
-                    showToast(
-                        "PDF deleted successfully.",
-                        "success"
-                    );
-
-                    await loadResources();
-
-                } catch (error) {
-
-                    showToast(
-                        error.message,
-                        "error"
-                    );
-
-                    button.disabled = false;
-                }
-
-                return;
-            }
-
-
-            if (action === "delete-resource") {
-
-                if (
-                    !confirm(
-                        "Delete this resource permanently?"
-                    )
-                ) {
-                    return;
-                }
-
-                button.disabled = true;
-
-                try {
-
-                    const response =
-                        await fetch(
-                            `/resources/${id}`,
-                            {
-                                method: "DELETE",
-                                credentials:
-                                    "same-origin"
-                            }
-                        );
-
-                    if (!response.ok) {
-                        throw new Error(
-                            await getApiError(response)
-                        );
-                    }
-
-                    showToast(
-                        "Resource deleted.",
-                        "success"
-                    );
-
-                    await loadResources();
-
-                } catch (error) {
-
-                    showToast(
-                        error.message,
-                        "error"
-                    );
-
-                    button.disabled = false;
-                }
-            }
-
-
-            if (action === "edit") {
-
-                const response =
-                    await fetch(
-                        `/resources/${id}`,
-                        {
-                            credentials:
-                                "same-origin"
-                        }
-                    );
-
-                if (!response.ok) {
-                    showToast(
-                        await getApiError(response),
-                        "error"
-                    );
-                    return;
-                }
-
-                const resource =
-                    await response.json();
-
-
-                const subject =
-                    prompt(
-                        "Subject:",
-                        resource.subject
-                    );
-
-                if (subject === null) {
-                    return;
-                }
-
-
-                const title =
-                    prompt(
-                        "Title:",
-                        resource.title
-                    );
-
-                if (title === null) {
-                    return;
-                }
-
-
-                const type =
-                    prompt(
-                        "Resource type:",
-                        resource.resource_type
-                    );
-
-                if (type === null) {
-                    return;
-                }
-
-
-                const link =
-                    prompt(
-                        "Resource link:",
-                        resource.link
-                    );
-
-                if (link === null) {
-                    return;
-                }
-
-
-                const description =
-                    prompt(
-                        "Description:",
-                        resource.description || ""
-                    );
-
-                if (description === null) {
-                    return;
-                }
-
-
-                try {
-
-                    const updateResponse =
-                        await fetch(
-                            `/resources/${id}`,
-                            {
-                                method: "PUT",
-                                credentials:
-                                    "same-origin",
-                                headers: {
-                                    "Content-Type":
-                                        "application/json"
-                                },
-                                body: JSON.stringify({
-                                    subject: subject.trim(),
-                                    title: title.trim(),
-                                    resource_type: type.trim(),
-                                    link: link.trim(),
-                                    description:
-                                        description.trim()
-                                })
-                            }
-                        );
-
-
-                    if (!updateResponse.ok) {
-                        throw new Error(
-                            await getApiError(
-                                updateResponse
-                            )
-                        );
-                    }
-
-
-                    showToast(
-                        "Resource updated.",
-                        "success"
-                    );
-
-                    await loadResources();
-
-                } catch (error) {
-
-                    showToast(
-                        error.message,
-                        "error"
-                    );
-                }
-            }
-        }
-    );
-
-
-    grid.addEventListener(
-        "change",
-        async event => {
-
-            const input =
-                event.target.closest(
-                    "[data-file-input]"
-                );
-
-            if (!input || !input.files.length) {
-                return;
-            }
-
-
-            const id =
-                Number(
-                    input.dataset.fileInput
-                );
-
-            const file =
-                input.files[0];
-
-
-            if (
-                file.type !== "application/pdf" &&
-                !file.name
-                    .toLowerCase()
-                    .endsWith(".pdf")
-            ) {
-
-                showToast(
-                    "Please select a PDF file.",
-                    "error"
-                );
-
-                input.value = "";
-
-                return;
-            }
-
-
-            if (
-                file.size >
-                10 * 1024 * 1024
-            ) {
-
-                showToast(
-                    "PDF must be 10 MB or smaller.",
-                    "error"
-                );
-
-                input.value = "";
-
-                return;
-            }
-
-
-            const data =
-                new FormData();
-
-            data.append(
-                "file",
-                file
-            );
-
-
-            try {
-
-                const response =
-                    await fetch(
-                        `/resources/${id}/file`,
-                        {
-                            method: "POST",
-                            credentials:
-                                "same-origin",
-                            body: data
-                        }
-                    );
-
-
-                if (!response.ok) {
-                    throw new Error(
-                        await getApiError(response)
-                    );
-                }
-
-
-                showToast(
-                    "PDF uploaded successfully.",
-                    "success"
-                );
-
-                await loadResources();
-
-            } catch (error) {
-
-                showToast(
-                    error.message,
-                    "error"
-                );
-
-            } finally {
-
-                input.value = "";
-            }
-        }
-    );
-
-
-    document
-        .getElementById("create-form")
-        .addEventListener(
-            "submit",
-            async event => {
-
-                event.preventDefault();
-
-
-                const button =
-                    document.getElementById(
-                        "create-button"
-                    );
-
-
-                const selectedFile =
-                    document.getElementById(
-                        "create-file"
-                    ).files[0];
-
-
-                if (
-                    selectedFile &&
-                    selectedFile.size >
-                    10 * 1024 * 1024
-                ) {
-
-                    showToast(
-                        "PDF must be 10 MB or smaller.",
-                        "error"
-                    );
-
-                    return;
-                }
-
-
-                button.disabled = true;
-                button.textContent = "Creating...";
-
-
-                try {
-
-                    const response =
-                        await fetch(
-                            "/resources",
-                            {
-                                method: "POST",
-                                credentials:
-                                    "same-origin",
-                                headers: {
-                                    "Content-Type":
-                                        "application/json"
-                                },
-                                body: JSON.stringify({
-
-                                    subject:
-                                        document
-                                            .getElementById(
-                                                "create-subject"
-                                            )
-                                            .value
-                                            .trim(),
-
-                                    title:
-                                        document
-                                            .getElementById(
-                                                "create-title"
-                                            )
-                                            .value
-                                            .trim(),
-
-                                    resource_type:
-                                        document
-                                            .getElementById(
-                                                "create-type"
-                                            )
-                                            .value
-                                            .trim(),
-
-                                    link:
-                                        document
-                                            .getElementById(
-                                                "create-link"
-                                            )
-                                            .value
-                                            .trim(),
-
-                                    description:
-                                        document
-                                            .getElementById(
-                                                "create-description"
-                                            )
-                                            .value
-                                            .trim()
-                                })
-                            }
-                        );
-
-
-                    if (!response.ok) {
-                        throw new Error(
-                            await getApiError(response)
-                        );
-                    }
-
-
-                    const created =
-                        await response.json();
-
-
-                    if (selectedFile) {
-
-                        button.textContent =
-                            "Uploading PDF...";
-
-
-                        const data =
-                            new FormData();
-
-                        data.append(
-                            "file",
-                            selectedFile
-                        );
-
-
-                        const upload =
-                            await fetch(
-                                `/resources/${created.id}/file`,
-                                {
-                                    method: "POST",
-                                    credentials:
-                                        "same-origin",
-                                    body: data
-                                }
-                            );
-
-
-                        if (!upload.ok) {
-
-                            throw new Error(
-                                "Resource created, but PDF upload failed: " +
-                                await getApiError(upload)
-                            );
-                        }
-                    }
-
-
-                    showToast(
-                        "Resource created successfully.",
-                        "success"
-                    );
-
-
-                    document
-                        .getElementById("create-form")
-                        .reset();
-
-
-                    state.page = 1;
-
-                    await loadResources();
-
-                } catch (error) {
-
-                    showToast(
-                        error.message,
-                        "error"
-                    );
-
-                } finally {
-
-                    button.disabled = false;
-                    button.textContent =
-                        "Create resource";
-                }
-            }
-        );
-
-
-    loadResources();
-
+    function applyFilters(resetPage=true) { if (resetPage) state.page=1; loadResources(); }
+    function openDetail(id) {
+        const resource = state.resources.find(r => Number(r.id) === Number(id));
+        if (!resource) return;
+        state.currentDetailId = id;
+        $("detail-type").textContent = resource.resource_type || "RESOURCE";
+        $("detail-title").textContent = resource.title;
+        $("detail-subject").textContent = resource.subject;
+        $("detail-description").textContent = resource.description || "No description provided.";
+        $("detail-meta").innerHTML = `<div><small>Resource ID</small><strong>#${resource.id}</strong></div><div><small>Added</small><strong>${fmtDate(resource.uploaded_at || new Date().toISOString())}</strong></div><div><small>Created by</small><strong>User ${resource.created_by ?? "—"}</strong></div><div><small>File</small><strong>${resource.has_file ? escapeHtml(resource.file_name || "PDF") : "No PDF"}</strong></div>`;
+        $("detail-link").href = resource.link;
+        $("detail-favorite").textContent = resource.is_favorite ? "★ Saved" : "☆ Save";
+        $("detail-edit").hidden = !isOwner(resource);
+        const file = $("detail-file");
+        file.hidden = !resource.has_file;
+        file.innerHTML = resource.has_file ? `<div><strong>${escapeHtml(resource.file_name || "Attached PDF")}</strong><span class="muted" style="font-size:.72rem;">${fmtSize(resource.file_size)}</span></div><a class="button button-small button-ghost" href="/resources/${resource.id}/file" target="_blank" rel="noopener">Open PDF ↗</a>` : "";
+        openModal("detail-modal");
+    }
+
+    async function toggleFavorite(id) {
+        if (!state.user) { showToast("Log in to save resources.","error"); window.location.href=`/login?next=${encodeURIComponent(window.location.pathname)}`; return; }
+        try {
+            const response = await fetch(`/resources/${id}/favorite`, { method:"PATCH", credentials:"same-origin" });
+            if (!response.ok) throw new Error(await getApiError(response));
+            await loadResources();
+            if (state.currentDetailId) openDetail(state.currentDetailId);
+        } catch (error) { showToast(error.message,"error"); }
+    }
+
+    async function deleteResource(id) {
+        if (!confirm("Delete this resource permanently?")) return;
+        try {
+            const response = await fetch(`/resources/${id}`, { method:"DELETE", credentials:"same-origin" });
+            if (!response.ok) throw new Error(await getApiError(response));
+            showToast("Resource deleted.","success");
+            await loadResources();
+        } catch (error) { showToast(error.message,"error"); }
+    }
+    async function deletePdf(id) {
+        if (!confirm("Remove the attached PDF?")) return;
+        try {
+            const response = await fetch(`/resources/${id}/file`, { method:"DELETE", credentials:"same-origin" });
+            if (!response.ok) throw new Error(await getApiError(response));
+            showToast("PDF removed.","success");
+            await loadResources();
+        } catch (error) { showToast(error.message,"error"); }
+    }
+    async function uploadPdf(id, file) {
+        if (!file) return;
+        const form = new FormData(); form.append("file", file);
+        try {
+            const response = await fetch(`/resources/${id}/file`, { method:"POST", body:form, credentials:"same-origin" });
+            if (!response.ok) throw new Error(await getApiError(response));
+            showToast("PDF attached successfully.","success");
+            await loadResources();
+        } catch (error) { showToast(error.message,"error"); }
+    }
+
+    function beginEdit(id) {
+        const resource = state.resources.find(r=>Number(r.id)===Number(id)); if (!resource) return;
+        $("edit-id").value=resource.id; $("edit-subject").value=resource.subject; $("edit-title-field").value=resource.title; $("edit-type").value=resource.resource_type; $("edit-link").value=resource.link; $("edit-description").value=resource.description || "";
+        closeModal("detail-modal"); openModal("edit-modal");
+    }
+
+    $("resource-grid").addEventListener("click", event => {
+        const view = event.target.closest("[data-view]"); if (view) openDetail(view.dataset.view);
+        const fav = event.target.closest("[data-favorite]"); if (fav) toggleFavorite(fav.dataset.favorite);
+        const edit = event.target.closest("[data-edit]"); if (edit) beginEdit(edit.dataset.edit);
+        const del = event.target.closest("[data-delete]"); if (del) deleteResource(del.dataset.delete);
+        const delPdf = event.target.closest("[data-delete-pdf]"); if (delPdf) deletePdf(delPdf.dataset.deletePdf);
+    });
+    $("resource-grid").addEventListener("change", event => { const upload = event.target.closest("[data-upload]"); if (upload) uploadPdf(upload.dataset.upload, upload.files[0]); });
+
+    ["open-create","hero-add"].forEach(id => $(id).addEventListener("click",()=>openModal("create-modal")));
+    document.querySelectorAll("[data-close-modal]").forEach(button=>button.addEventListener("click",()=>closeModal(button.dataset.closeModal)));
+    ["create-modal","detail-modal","edit-modal"].forEach(bindModalBackdrop);
+    document.addEventListener("keydown", event=>{ if(event.key==="Escape"){["create-modal","detail-modal","edit-modal"].forEach(closeModal);} });
+
+    $("detail-favorite").addEventListener("click",()=>state.currentDetailId && toggleFavorite(state.currentDetailId));
+    $("detail-edit").addEventListener("click",()=>state.currentDetailId && beginEdit(state.currentDetailId));
+
+    $("create-cancel").addEventListener("click",()=>closeModal("create-modal"));
+    $("create-form").addEventListener("submit", async event => {
+        event.preventDefault();
+        const button=$("create-button"); button.disabled=true; button.textContent="Creating…";
+        try {
+            const payload={subject:$("create-subject").value.trim(),title:$("create-title").value.trim(),resource_type:$("create-type").value.trim(),link:$("create-link").value.trim(),description:$("create-description").value.trim()};
+            const response=await fetch("/resources",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"same-origin",body:JSON.stringify(payload)});
+            if(!response.ok) throw new Error(await getApiError(response));
+            const data=await response.json();
+            const file=$("create-file").files[0];
+            if(file){const form=new FormData();form.append("file",file);const upload=await fetch(`/resources/${data.id}/file`,{method:"POST",body:form,credentials:"same-origin"});if(!upload.ok)throw new Error(await getApiError(upload));}
+            $("create-form").reset(); closeModal("create-modal"); showToast("Resource added to the hub.","success"); await loadResources();
+        } catch(error){showToast(error.message,"error");}
+        finally{button.disabled=false;button.textContent="Create resource";}
+    });
+
+    $("edit-form").addEventListener("submit", async event => {
+        event.preventDefault(); const id=$("edit-id").value; const button=$("edit-button"); button.disabled=true; button.textContent="Saving…";
+        try {
+            const payload={subject:$("edit-subject").value.trim(),title:$("edit-title-field").value.trim(),resource_type:$("edit-type").value.trim(),link:$("edit-link").value.trim(),description:$("edit-description").value.trim()};
+            const response=await fetch(`/resources/${id}`,{method:"PUT",headers:{"Content-Type":"application/json"},credentials:"same-origin",body:JSON.stringify(payload)});
+            if(!response.ok) throw new Error(await getApiError(response));
+            closeModal("edit-modal"); showToast("Resource updated.","success"); await loadResources();
+        } catch(error){showToast(error.message,"error");}
+        finally{button.disabled=false;button.textContent="Save changes";}
+    });
+
+    $("refresh-button").addEventListener("click",()=>loadResources());
+    $("clear-filters").addEventListener("click",()=>{els.search.value="";els.type.value="";els.favorite.value="all";els.sort.value="id";els.order.value="desc";applyFilters();});
+    [els.type,els.favorite,els.sort,els.order].forEach(node=>node.addEventListener("change",()=>applyFilters()));
+    els.search.addEventListener("input",()=>{clearTimeout(state.searchTimer);state.searchTimer=setTimeout(()=>applyFilters(),260);});
+    els.previous.addEventListener("click",()=>{if(state.page>1){state.page--;loadResources();window.scrollTo({top:document.getElementById("library").offsetTop-90,behavior:"smooth"});}});
+    els.next.addEventListener("click",()=>{if(state.page<state.pages){state.page++;loadResources();window.scrollTo({top:document.getElementById("library").offsetTop-90,behavior:"smooth"});}});
+
+    await loadResources();
 });
-
 </script>
-
 {% endblock %}
