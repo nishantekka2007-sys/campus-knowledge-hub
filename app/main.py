@@ -1,4 +1,5 @@
 import sqlite3
+from urllib.parse import urlparse
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
@@ -35,6 +36,16 @@ class Resource(BaseModel):
 
         return value
 
+    @field_validator("link")
+    @classmethod
+    def validate_link(cls, value: str) -> str:
+        parsed_url = urlparse(value)
+
+        if parsed_url.scheme not in ("http", "https") or not parsed_url.netloc:
+            raise ValueError("Link must be a valid HTTP or HTTPS URL")
+
+        return value
+
 
 def connect_database():
     return sqlite3.connect(DATABASE)
@@ -44,7 +55,8 @@ def create_table():
     connection = connect_database()
     cursor = connection.cursor()
 
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS resources (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             subject TEXT NOT NULL,
@@ -52,7 +64,8 @@ def create_table():
             resource_type TEXT NOT NULL,
             link TEXT NOT NULL
         )
-    """)
+        """
+    )
 
     connection.commit()
     connection.close()
@@ -79,10 +92,13 @@ def add_resource():
     connection = connect_database()
     cursor = connection.cursor()
 
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO resources (subject, title, resource_type, link)
         VALUES (?, ?, ?, ?)
-    """, (subject, title, resource_type, link))
+        """,
+        (subject, title, resource_type, link),
+    )
 
     connection.commit()
     connection.close()
@@ -94,13 +110,16 @@ def view_resources():
     connection = connect_database()
     cursor = connection.cursor()
 
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT id, subject, title, resource_type, link
         FROM resources
         ORDER BY id
-    """)
+        """
+    )
 
     resources = cursor.fetchall()
+
     connection.close()
 
     print("\n--- All Resources ---")
@@ -129,16 +148,20 @@ def search_resources():
 
     search_term = f"%{keyword}%"
 
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT id, subject, title, resource_type, link
         FROM resources
         WHERE subject LIKE ?
            OR title LIKE ?
            OR resource_type LIKE ?
         ORDER BY id
-    """, (search_term, search_term, search_term))
+        """,
+        (search_term, search_term, search_term),
+    )
 
     resources = cursor.fetchall()
+
     connection.close()
 
     if not resources:
@@ -165,11 +188,14 @@ def update_resource():
     connection = connect_database()
     cursor = connection.cursor()
 
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT id, subject, title, resource_type, link
         FROM resources
         WHERE id = ?
-    """, (resource_id,))
+        """,
+        (resource_id,),
+    )
 
     resource = cursor.fetchone()
 
@@ -191,20 +217,23 @@ def update_resource():
     new_type = get_required_input("New type: ")
     new_link = get_required_input("New link: ")
 
-    cursor.execute("""
+    cursor.execute(
+        """
         UPDATE resources
         SET subject = ?,
             title = ?,
             resource_type = ?,
             link = ?
         WHERE id = ?
-    """, (
-        new_subject,
-        new_title,
-        new_type,
-        new_link,
-        resource_id
-    ))
+        """,
+        (
+            new_subject,
+            new_title,
+            new_type,
+            new_link,
+            resource_id,
+        ),
+    )
 
     connection.commit()
     connection.close()
@@ -220,11 +249,14 @@ def delete_resource():
     connection = connect_database()
     cursor = connection.cursor()
 
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT title
         FROM resources
         WHERE id = ?
-    """, (resource_id,))
+        """,
+        (resource_id,),
+    )
 
     resource = cursor.fetchone()
 
@@ -233,17 +265,22 @@ def delete_resource():
         print("Resource not found.")
         return
 
-    confirm = input(f'Delete "{resource[0]}"? (y/n): ').strip().lower()
+    confirm = input(
+        f'Delete "{resource[0]}"? (y/n): '
+    ).strip().lower()
 
     if confirm != "y":
         connection.close()
         print("Deletion cancelled.")
         return
 
-    cursor.execute("""
+    cursor.execute(
+        """
         DELETE FROM resources
         WHERE id = ?
-    """, (resource_id,))
+        """,
+        (resource_id,),
+    )
 
     connection.commit()
     connection.close()
@@ -259,7 +296,7 @@ def home(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="index.html",
-        context={}
+        context={},
     )
 
 
@@ -269,13 +306,16 @@ def get_resources():
     connection.row_factory = sqlite3.Row
     cursor = connection.cursor()
 
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT id, subject, title, resource_type, link
         FROM resources
         ORDER BY id
-    """)
+        """
+    )
 
     resources = [dict(row) for row in cursor.fetchall()]
+
     connection.close()
 
     return resources
@@ -287,17 +327,24 @@ def get_resource(resource_id: int):
     connection.row_factory = sqlite3.Row
     cursor = connection.cursor()
 
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT id, subject, title, resource_type, link
         FROM resources
         WHERE id = ?
-    """, (resource_id,))
+        """,
+        (resource_id,),
+    )
 
     resource = cursor.fetchone()
+
     connection.close()
 
     if resource is None:
-        raise HTTPException(status_code=404, detail="Resource not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Resource not found",
+        )
 
     return dict(resource)
 
@@ -307,15 +354,18 @@ def create_resource(resource: Resource):
     connection = connect_database()
     cursor = connection.cursor()
 
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO resources (subject, title, resource_type, link)
         VALUES (?, ?, ?, ?)
-    """, (
-        resource.subject,
-        resource.title,
-        resource.resource_type,
-        resource.link
-    ))
+        """,
+        (
+            resource.subject,
+            resource.title,
+            resource.resource_type,
+            resource.link,
+        ),
+    )
 
     resource_id = cursor.lastrowid
 
@@ -324,7 +374,7 @@ def create_resource(resource: Resource):
 
     return {
         "message": "Resource created successfully",
-        "id": resource_id
+        "id": resource_id,
     }
 
 
@@ -335,36 +385,43 @@ def update_resource_api(resource_id: int, resource: Resource):
 
     cursor.execute(
         "SELECT id FROM resources WHERE id = ?",
-        (resource_id,)
+        (resource_id,),
     )
 
     existing_resource = cursor.fetchone()
 
     if existing_resource is None:
         connection.close()
-        raise HTTPException(status_code=404, detail="Resource not found")
 
-    cursor.execute("""
+        raise HTTPException(
+            status_code=404,
+            detail="Resource not found",
+        )
+
+    cursor.execute(
+        """
         UPDATE resources
         SET subject = ?,
             title = ?,
             resource_type = ?,
             link = ?
         WHERE id = ?
-    """, (
-        resource.subject,
-        resource.title,
-        resource.resource_type,
-        resource.link,
-        resource_id
-    ))
+        """,
+        (
+            resource.subject,
+            resource.title,
+            resource.resource_type,
+            resource.link,
+            resource_id,
+        ),
+    )
 
     connection.commit()
     connection.close()
 
     return {
         "message": "Resource updated successfully",
-        "id": resource_id
+        "id": resource_id,
     }
 
 
@@ -375,18 +432,22 @@ def delete_resource_api(resource_id: int):
 
     cursor.execute(
         "SELECT id FROM resources WHERE id = ?",
-        (resource_id,)
+        (resource_id,),
     )
 
     existing_resource = cursor.fetchone()
 
     if existing_resource is None:
         connection.close()
-        raise HTTPException(status_code=404, detail="Resource not found")
+
+        raise HTTPException(
+            status_code=404,
+            detail="Resource not found",
+        )
 
     cursor.execute(
         "DELETE FROM resources WHERE id = ?",
-        (resource_id,)
+        (resource_id,),
     )
 
     connection.commit()
@@ -394,7 +455,7 @@ def delete_resource_api(resource_id: int):
 
     return {
         "message": "Resource deleted successfully",
-        "id": resource_id
+        "id": resource_id,
     }
 
 
@@ -406,16 +467,20 @@ def search_resources_api(keyword: str):
 
     search_term = f"%{keyword}%"
 
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT id, subject, title, resource_type, link
         FROM resources
         WHERE subject LIKE ?
            OR title LIKE ?
            OR resource_type LIKE ?
         ORDER BY id
-    """, (search_term, search_term, search_term))
+        """,
+        (search_term, search_term, search_term),
+    )
 
     resources = [dict(row) for row in cursor.fetchall()]
+
     connection.close()
 
     return resources
