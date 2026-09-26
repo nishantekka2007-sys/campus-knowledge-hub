@@ -65,6 +65,33 @@ def make_admin(username):
     connection.close()
 
 
+def create_test_resource():
+    response = client.post(
+        "/resources",
+        json={
+            "subject": "Python",
+            "title": "Python Basics",
+            "resource_type": "Course",
+            "link": "https://example.com/python",
+            "description": "Python fundamentals.",
+        },
+    )
+
+    assert response.status_code == 201
+
+    return response.json()["id"]
+
+
+def valid_pdf_content():
+    return (
+        b"%PDF-1.4\n"
+        b"1 0 obj\n"
+        b"<< /Type /Catalog >>\n"
+        b"endobj\n"
+        b"%%EOF\n"
+    )
+
+
 def test_create_table(tmp_path, monkeypatch):
     setup_test_database(tmp_path, monkeypatch)
 
@@ -344,6 +371,7 @@ def test_create_resource_api(
     )
 
     assert response.status_code == 201
+
     assert (
         response.json()["message"]
         == "Resource created successfully"
@@ -356,6 +384,7 @@ def test_create_resource_api(
     )
 
     assert get_response.status_code == 200
+
     assert (
         get_response.json()["title"]
         == "Java Basics"
@@ -412,10 +441,12 @@ def test_update_resource_api(
     )
 
     assert get_response.status_code == 200
+
     assert (
         get_response.json()["title"]
         == "Python Fundamentals"
     )
+
     assert (
         get_response.json()["resource_type"]
         == "Course"
@@ -500,9 +531,10 @@ def test_toggle_favorite_api(
 
     assert response.status_code == 200
 
-    body = response.json()
-
-    assert body["is_favorite"] is True
+    assert (
+        response.json()["is_favorite"]
+        is True
+    )
 
 
 def test_get_favorite_resources_api(
@@ -566,12 +598,15 @@ def test_get_favorite_resources_api(
     results = response.json()
 
     assert len(results) == 1
+
     assert (
         results[0]["title"]
         == "Java Basics"
     )
+
     assert (
-        results[0]["is_favorite"] is True
+        results[0]["is_favorite"]
+        is True
     )
 
 
@@ -595,7 +630,9 @@ def test_get_resources_by_type_api(
             "link": (
                 "https://example.com/fastapi"
             ),
-            "description": "Learn FastAPI.",
+            "description": (
+                "Learn FastAPI."
+            ),
         },
     )
 
@@ -608,7 +645,9 @@ def test_get_resources_by_type_api(
             "link": (
                 "https://example.com/python"
             ),
-            "description": "Learn Python.",
+            "description": (
+                "Learn Python."
+            ),
         },
     )
 
@@ -624,10 +663,12 @@ def test_get_resources_by_type_api(
     results = response.json()
 
     assert len(results) == 1
+
     assert (
         results[0]["title"]
         == "FastAPI Basics"
     )
+
     assert (
         results[0]["resource_type"]
         == "Course"
@@ -738,6 +779,7 @@ def test_search_resource_api(
     results = response.json()
 
     assert len(results) == 1
+
     assert (
         results[0]["title"]
         == "FastAPI Basics"
@@ -798,6 +840,7 @@ def test_search_resource_api_by_description(
     results = response.json()
 
     assert len(results) == 1
+
     assert (
         results[0]["title"]
         == "Java Basics"
@@ -818,6 +861,7 @@ def test_not_found_resource_api(
     )
 
     assert response.status_code == 404
+
     assert (
         response.json()["detail"]
         == "Resource not found"
@@ -943,11 +987,12 @@ def test_register_api(
         },
     )
 
-    assert response.status_code in (200, 201)
+    assert response.status_code in (
+        200,
+        201,
+    )
 
-    body = response.json()
-
-    assert "message" in body
+    assert "message" in response.json()
 
 
 def test_register_duplicate_username(
@@ -1018,9 +1063,7 @@ def test_login_api(
 
     assert login_response.status_code == 200
 
-    body = login_response.json()
-
-    assert "message" in body
+    assert "message" in login_response.json()
 
 
 def test_login_rejects_invalid_password(
@@ -1069,8 +1112,10 @@ def test_me_requires_authentication(
         main.app
     )
 
-    response = unauthenticated_client.get(
-        "/me"
+    response = (
+        unauthenticated_client.get(
+            "/me"
+        )
     )
 
     assert response.status_code == 401
@@ -1132,14 +1177,18 @@ def test_logout_api(
 
     assert me_response.status_code == 200
 
-    logout_response = authenticated_client.post(
-        "/logout"
+    logout_response = (
+        authenticated_client.post(
+            "/logout"
+        )
     )
 
     assert logout_response.status_code == 200
 
-    me_after_logout = authenticated_client.get(
-        "/me"
+    me_after_logout = (
+        authenticated_client.get(
+            "/me"
+        )
     )
 
     assert me_after_logout.status_code == 401
@@ -1171,3 +1220,326 @@ def test_protected_create_requires_login(
     )
 
     assert response.status_code == 401
+
+
+# =========================================================
+# FILE / PDF TESTS
+# =========================================================
+
+def test_upload_pdf_api(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
+
+    register_and_login(client)
+
+    resource_id = create_test_resource()
+
+    response = client.post(
+        f"/resources/{resource_id}/file",
+        files={
+            "file": (
+                "python-notes.pdf",
+                valid_pdf_content(),
+                "application/pdf",
+            )
+        },
+    )
+
+    assert response.status_code == 201
+
+    body = response.json()
+
+    assert (
+        body["message"]
+        == "PDF uploaded successfully"
+    )
+
+    assert (
+        body["resource_id"]
+        == resource_id
+    )
+
+    assert (
+        body["file_name"]
+        == "python-notes.pdf"
+    )
+
+    assert (
+        body["content_type"]
+        == "application/pdf"
+    )
+
+    assert body["file_size"] > 0
+
+
+def test_resource_shows_attached_file(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
+
+    register_and_login(client)
+
+    resource_id = create_test_resource()
+
+    upload_response = client.post(
+        f"/resources/{resource_id}/file",
+        files={
+            "file": (
+                "notes.pdf",
+                valid_pdf_content(),
+                "application/pdf",
+            )
+        },
+    )
+
+    assert upload_response.status_code == 201
+
+    response = client.get(
+        f"/resources/{resource_id}"
+    )
+
+    assert response.status_code == 200
+
+    body = response.json()
+
+    assert body["has_file"] is True
+    assert body["file_name"] == "notes.pdf"
+    assert body["file_size"] > 0
+    assert (
+        body["file_content_type"]
+        == "application/pdf"
+    )
+
+
+def test_download_pdf_api(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
+
+    register_and_login(client)
+
+    resource_id = create_test_resource()
+
+    pdf_data = valid_pdf_content()
+
+    upload_response = client.post(
+        f"/resources/{resource_id}/file",
+        files={
+            "file": (
+                "download-test.pdf",
+                pdf_data,
+                "application/pdf",
+            )
+        },
+    )
+
+    assert upload_response.status_code == 201
+
+    response = client.get(
+        f"/resources/{resource_id}/file"
+    )
+
+    assert response.status_code == 200
+
+    assert (
+        response.headers["content-type"]
+        == "application/pdf"
+    )
+
+    assert response.content == pdf_data
+
+
+def test_upload_rejects_non_pdf(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
+
+    register_and_login(client)
+
+    resource_id = create_test_resource()
+
+    response = client.post(
+        f"/resources/{resource_id}/file",
+        files={
+            "file": (
+                "notes.txt",
+                b"plain text file",
+                "text/plain",
+            )
+        },
+    )
+
+    assert response.status_code == 415
+
+    assert (
+        response.json()["detail"]
+        == "Only PDF files are allowed"
+    )
+
+
+def test_upload_rejects_fake_pdf(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
+
+    register_and_login(client)
+
+    resource_id = create_test_resource()
+
+    response = client.post(
+        f"/resources/{resource_id}/file",
+        files={
+            "file": (
+                "fake.pdf",
+                b"this is not really a PDF",
+                "application/pdf",
+            )
+        },
+    )
+
+    assert response.status_code == 415
+
+    assert (
+        "valid PDF signature"
+        in response.json()["detail"]
+    )
+
+
+def test_student_cannot_upload_to_others_resource(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
+
+    register_and_login(
+        client,
+        username="owneruser",
+        password="password123",
+    )
+
+    resource_id = create_test_resource()
+
+    client.post("/logout")
+
+    register_and_login(
+        client,
+        username="otheruser",
+        password="password123",
+    )
+
+    response = client.post(
+        f"/resources/{resource_id}/file",
+        files={
+            "file": (
+                "other.pdf",
+                valid_pdf_content(),
+                "application/pdf",
+            )
+        },
+    )
+
+    assert response.status_code == 403
+
+
+def test_delete_pdf_api(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
+
+    register_and_login(client)
+
+    resource_id = create_test_resource()
+
+    upload_response = client.post(
+        f"/resources/{resource_id}/file",
+        files={
+            "file": (
+                "delete-test.pdf",
+                valid_pdf_content(),
+                "application/pdf",
+            )
+        },
+    )
+
+    assert upload_response.status_code == 201
+
+    delete_response = client.delete(
+        f"/resources/{resource_id}/file"
+    )
+
+    assert delete_response.status_code == 200
+
+    body = delete_response.json()
+
+    assert (
+        body["message"]
+        == "PDF deleted successfully"
+    )
+
+    resource_response = client.get(
+        f"/resources/{resource_id}"
+    )
+
+    assert resource_response.status_code == 200
+
+    resource_body = (
+        resource_response.json()
+    )
+
+    assert resource_body["has_file"] is False
+    assert resource_body["file_name"] is None
+    assert resource_body["file_size"] is None
+
+
+def test_download_missing_file_returns_404(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
+
+    register_and_login(client)
+
+    resource_id = create_test_resource()
+
+    response = client.get(
+        f"/resources/{resource_id}/file"
+    )
+
+    assert response.status_code == 404
+
+    assert (
+        response.json()["detail"]
+        == "No file is attached "
+        "to this resource"
+    )
