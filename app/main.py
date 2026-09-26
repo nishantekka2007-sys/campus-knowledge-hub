@@ -1,13 +1,21 @@
+import hashlib
+import hmac
+import re
+import secrets
 import sqlite3
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
 
-from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field, field_validator
 
 
 DATABASE = "campus.db"
+
+SESSION_DAYS = 7
+PASSWORD_ITERATIONS = 310_000
 
 
 app = FastAPI(
@@ -18,6 +26,28 @@ app = FastAPI(
 
 
 templates = Jinja2Templates(directory="templates")
+
+
+class RegisterRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=30)
+    password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("username")
+    @classmethod
+    def validate_username(cls, value: str) -> str:
+        value = value.strip()
+
+        if not re.fullmatch(r"[A-Za-z0-9_]{3,30}", value):
+            raise ValueError(
+                "Username must contain only letters, numbers, and underscores"
+            )
+
+        return value
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
 
 
 class Resource(BaseModel):
@@ -57,6 +87,142 @@ def connect_database():
     return sqlite3.connect(DATABASE)
 
 
+def hash_password(password: str) -> str:
+    salt = secrets.token_hex(16)
+
+    password_hash = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt.encode("utf-8"),
+        PASSWORD_ITERATIONS,
+    )
+
+    return (
+        f"pbkdf2_sha256${PASSWORD_ITERATIONS}"
+        f"${salt}${password_hash.hex()}"
+    )
+
+
+def verify_password(password: str, stored_hash: str) -> bool:
+    try:
+        algorithm, iterations, salt, expected_hash = stored_hash.split("$")
+
+        if algorithm != "pbkdf2_sha256":
+            return False
+
+        password_hash = hashlib.pbkdf2_hmac(
+            "sha256",
+            password.encode("utf-8"),
+            salt.encode("utf-8"),
+            int(iterations),
+        )
+
+        return hmac.compare_digest(
+            password_hash.hex(),
+            expected_hash,
+        )
+
+    except (ValueError, TypeError):
+        return False
+
+
+def create_session(user_id: int) -> str:
+    token = secrets.token_urlsafe(32)
+
+    expires_at = (
+        datetime.now(timezone.utc)
+        + timedelta(days=SESSION_DAYS)
+    ).isoformat()
+
+    connection = connect_database()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        INSERT INTO sessions (
+            token,
+            user_id,
+            expires_at
+        )
+        VALUES (?, ?, ?)
+        """,
+        (
+            token,
+            user_id,
+            expires_at,
+        ),
+    )
+
+    connection.commit()
+    connection.close()
+
+    return token
+
+
+def get_current_user(request: Request):
+    token = request.cookies.get("session_token")
+
+    if not token:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required",
+        )
+
+    connection = connect_database()
+    connection.row_factory = sqlite3.Row
+    cursor = connection.cursor()
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    cursor.execute(
+        "DELETE FROM sessions WHERE expires_at <= ?",
+        (now,),
+    )
+
+    connection.commit()
+
+    cursor.execute(
+        """
+        SELECT
+            users.id,
+            users.username,
+            users.role
+        FROM sessions
+        JOIN users
+            ON users.id = sessions.user_id
+        WHERE sessions.token = ?
+          AND sessions.expires_at > ?
+        """,
+        (
+            token,
+            now,
+        ),
+    )
+
+    user = cursor.fetchone()
+
+    connection.close()
+
+    if user is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired session",
+        )
+
+    return dict(user)
+
+
+def set_session_cookie(response, token: str):
+    response.set_cookie(
+        key="session_token",
+        value=token,
+        max_age=SESSION_DAYS * 24 * 60 * 60,
+        httponly=True,
+        samesite="lax",
+        secure=False,
+    )
+
+
 def create_table():
     connection = connect_database()
     cursor = connection.cursor()
@@ -76,9 +242,12 @@ def create_table():
     )
 
     cursor.execute("PRAGMA table_info(resources)")
-    columns = [column[1] for column in cursor.fetchall()]
+    resource_columns = [
+        column[1]
+        for column in cursor.fetchall()
+    ]
 
-    if "description" not in columns:
+    if "description" not in resource_columns:
         cursor.execute(
             """
             ALTER TABLE resources
@@ -86,13 +255,35 @@ def create_table():
             """
         )
 
-    if "is_favorite" not in columns:
+    if "is_favorite" not in resource_columns:
         cursor.execute(
             """
             ALTER TABLE resources
             ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0
             """
         )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'student',
+            created_at TEXT NOT NULL
+        )
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS sessions (
+            token TEXT PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            expires_at TEXT NOT NULL
+        )
+        """
+    )
 
     connection.commit()
     connection.close()
@@ -413,6 +604,144 @@ def health_check():
     }
 
 
+@app.post("/register", status_code=201)
+def register_user(data: RegisterRequest):
+    connection = connect_database()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        "SELECT id FROM users WHERE username = ?",
+        (data.username,),
+    )
+
+    existing_user = cursor.fetchone()
+
+    if existing_user is not None:
+        connection.close()
+
+        raise HTTPException(
+            status_code=409,
+            detail="Username already exists",
+        )
+
+    created_at = datetime.now(timezone.utc).isoformat()
+
+    cursor.execute(
+        """
+        INSERT INTO users (
+            username,
+            password_hash,
+            role,
+            created_at
+        )
+        VALUES (?, ?, ?, ?)
+        """,
+        (
+            data.username,
+            hash_password(data.password),
+            "student",
+            created_at,
+        ),
+    )
+
+    user_id = cursor.lastrowid
+
+    connection.commit()
+    connection.close()
+
+    return {
+        "message": "Registration successful",
+        "id": user_id,
+        "username": data.username,
+        "role": "student",
+    }
+
+
+@app.post("/login")
+def login_user(
+    data: LoginRequest,
+):
+    connection = connect_database()
+    connection.row_factory = sqlite3.Row
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        SELECT
+            id,
+            username,
+            password_hash,
+            role
+        FROM users
+        WHERE username = ?
+        """,
+        (data.username.strip(),),
+    )
+
+    user = cursor.fetchone()
+
+    connection.close()
+
+    if user is None or not verify_password(
+        data.password,
+        user["password_hash"],
+    ):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid username or password",
+        )
+
+    token = create_session(user["id"])
+
+    response = JSONResponse(
+        {
+            "message": "Login successful",
+            "username": user["username"],
+            "role": user["role"],
+        }
+    )
+
+    set_session_cookie(response, token)
+
+    return response
+
+
+@app.post("/logout")
+def logout_user(request: Request):
+    token = request.cookies.get("session_token")
+
+    if token:
+        connection = connect_database()
+        cursor = connection.cursor()
+
+        cursor.execute(
+            "DELETE FROM sessions WHERE token = ?",
+            (token,),
+        )
+
+        connection.commit()
+        connection.close()
+
+    response = JSONResponse(
+        {
+            "message": "Logged out successfully"
+        }
+    )
+
+    response.delete_cookie("session_token")
+
+    return response
+
+
+@app.get("/me")
+def get_me(current_user=Depends(get_current_user)):
+    return {
+        "id": current_user["id"],
+        "username": current_user["username"],
+        "role": current_user["role"],
+    }
+
+
 @app.get("/resources")
 def get_resources(
     favorite: bool = False,
@@ -452,15 +781,20 @@ def get_resources(
 
     query += " ORDER BY id"
 
-    cursor.execute(query, parameters)
+    cursor.execute(
+        query,
+        parameters,
+    )
 
     resources = []
 
     for row in cursor.fetchall():
         resource = dict(row)
+
         resource["is_favorite"] = bool(
             resource["is_favorite"]
         )
+
         resources.append(resource)
 
     connection.close()
@@ -501,6 +835,7 @@ def get_resource(resource_id: int):
         )
 
     result = dict(resource)
+
     result["is_favorite"] = bool(
         result["is_favorite"]
     )
@@ -509,7 +844,10 @@ def get_resource(resource_id: int):
 
 
 @app.post("/resources", status_code=201)
-def create_resource(resource: Resource):
+def create_resource(
+    resource: Resource,
+    current_user=Depends(get_current_user),
+):
     connection = connect_database()
     cursor = connection.cursor()
 
@@ -548,6 +886,7 @@ def create_resource(resource: Resource):
 def update_resource_api(
     resource_id: int,
     resource: Resource,
+    current_user=Depends(get_current_user),
 ):
     connection = connect_database()
     cursor = connection.cursor()
@@ -597,7 +936,10 @@ def update_resource_api(
 
 
 @app.patch("/resources/{resource_id}/favorite")
-def toggle_favorite(resource_id: int):
+def toggle_favorite(
+    resource_id: int,
+    current_user=Depends(get_current_user),
+):
     connection = connect_database()
     connection.row_factory = sqlite3.Row
     cursor = connection.cursor()
@@ -621,7 +963,11 @@ def toggle_favorite(resource_id: int):
             detail="Resource not found",
         )
 
-    new_status = 0 if resource["is_favorite"] else 1
+    new_status = (
+        0
+        if resource["is_favorite"]
+        else 1
+    )
 
     cursor.execute(
         """
@@ -646,7 +992,10 @@ def toggle_favorite(resource_id: int):
 
 
 @app.delete("/resources/{resource_id}")
-def delete_resource_api(resource_id: int):
+def delete_resource_api(
+    resource_id: int,
+    current_user=Depends(get_current_user),
+):
     connection = connect_database()
     cursor = connection.cursor()
 
@@ -719,9 +1068,11 @@ def search_resources_api(keyword: str):
 
     for row in cursor.fetchall():
         resource = dict(row)
+
         resource["is_favorite"] = bool(
             resource["is_favorite"]
         )
+
         resources.append(resource)
 
     connection.close()
