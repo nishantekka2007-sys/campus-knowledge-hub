@@ -411,6 +411,47 @@ def test_get_favorite_resources_api(tmp_path, monkeypatch):
     assert results[0]["id"] != second_id
 
 
+def test_get_resources_by_type_api(tmp_path, monkeypatch):
+    setup_test_database(tmp_path, monkeypatch)
+
+    course_response = client.post(
+        "/resources",
+        json={
+            "subject": "FastAPI",
+            "title": "FastAPI Basics",
+            "resource_type": "Course",
+            "link": "https://example.com/fastapi",
+            "description": "Learn FastAPI.",
+        },
+    )
+
+    notes_response = client.post(
+        "/resources",
+        json={
+            "subject": "Python",
+            "title": "Python Fundamentals",
+            "resource_type": "Notes",
+            "link": "https://example.com/python",
+            "description": "Learn Python.",
+        },
+    )
+
+    assert course_response.status_code == 201
+    assert notes_response.status_code == 201
+
+    response = client.get("/resources?type=Course")
+
+    assert response.status_code == 200
+
+    results = response.json()
+
+    assert len(results) == 1
+    assert results[0]["title"] == "FastAPI Basics"
+    assert results[0]["resource_type"] == "Course"
+
+    assert results[0]["resource_type"] != "Notes"
+
+
 def test_delete_resource_api(tmp_path, monkeypatch):
     setup_test_database(tmp_path, monkeypatch)
 
