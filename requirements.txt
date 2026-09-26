@@ -1,2 +1,5 @@
 pytest==9.1.1
+fastapi
+uvicorn
+pytest==9.1.1
 
