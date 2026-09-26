@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>Campus Knowledge Hub</title>
 
     <style>
@@ -88,6 +89,11 @@
             border-color: #2563eb;
         }
 
+        .file-input {
+            grid-column: 1 / -1;
+            background: #f9fafb;
+        }
+
         .form-button {
             grid-column: 1 / -1;
             border: none;
@@ -167,12 +173,6 @@
             border-radius: 14px;
             padding: 24px;
             box-shadow: 0 6px 20px rgba(0, 0, 0, 0.05);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .resource-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
         }
 
         .resource-card h2 {
@@ -218,7 +218,19 @@
             font-weight: bold;
         }
 
-        .resource-link {
+        .file-badge {
+            display: inline-block;
+            margin-top: 12px;
+            color: #166534;
+            background: #dcfce7;
+            padding: 5px 10px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        .resource-link,
+        .download-link {
             display: inline-block;
             margin-top: 15px;
             color: white;
@@ -229,8 +241,56 @@
             font-weight: bold;
         }
 
+        .download-link {
+            background: #16a34a;
+        }
+
         .resource-link:hover {
             background: #1d4ed8;
+        }
+
+        .download-link:hover {
+            background: #15803d;
+        }
+
+        .file-section {
+            margin-top: 18px;
+            padding: 15px;
+            background: #f9fafb;
+            border-radius: 10px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .file-section strong {
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .file-section input {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .upload-button {
+            border: none;
+            background: #7c3aed;
+            color: white;
+            padding: 9px 13px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .upload-button:hover {
+            background: #6d28d9;
+        }
+
+        .file-message {
+            margin-top: 8px;
+            font-size: 13px;
+            font-weight: bold;
+            min-height: 20px;
         }
 
         .card-actions {
@@ -317,7 +377,10 @@
                 grid-template-columns: 1fr;
             }
 
-            .resource-form textarea {
+            .resource-form textarea,
+            .file-input,
+            .form-button,
+            .form-message {
                 grid-column: auto;
             }
 
@@ -338,258 +401,377 @@
 
 <body>
 
-    <header>
-        <div class="header-content">
-            <h1>Campus Knowledge Hub</h1>
-            <p>Find and manage college learning resources in one place.</p>
-        </div>
-    </header>
+<header>
+    <div class="header-content">
+        <h1>Campus Knowledge Hub</h1>
+        <p>Find and manage college learning resources in one place.</p>
+    </div>
+</header>
 
-    <main>
+<main>
 
-        <section class="add-section">
-            <h2>Add a Resource</h2>
+    <section class="add-section">
+        <h2>Add a Resource</h2>
 
-            <form id="resourceForm" class="resource-form">
-
-                <input
-                    type="text"
-                    id="subject"
-                    placeholder="Subject"
-                    required
-                >
-
-                <input
-                    type="text"
-                    id="title"
-                    placeholder="Resource title"
-                    required
-                >
-
-                <input
-                    type="text"
-                    id="resourceType"
-                    placeholder="Type (Notes, Course, Video...)"
-                    required
-                >
-
-                <input
-                    type="url"
-                    id="link"
-                    placeholder="https://example.com"
-                    required
-                >
-
-                <textarea
-                    id="description"
-                    placeholder="Short description (optional, max 500 characters)"
-                    maxlength="500"
-                ></textarea>
-
-                <button type="submit" class="form-button">
-                    Add Resource
-                </button>
-
-                <div id="formMessage" class="form-message"></div>
-
-            </form>
-        </section>
-
-        <div class="toolbar">
+        <form id="resourceForm" class="resource-form">
 
             <input
                 type="text"
-                id="searchInput"
-                class="search-box"
-                placeholder="Search by subject, title, type, or description..."
+                id="subject"
+                placeholder="Subject"
+                required
             >
 
-            <select id="typeFilter" class="type-filter">
-                <option value="">All Types</option>
-            </select>
+            <input
+                type="text"
+                id="title"
+                placeholder="Resource title"
+                required
+            >
 
-            <select id="favoriteFilter" class="favorite-filter">
-                <option value="">All Resources</option>
-                <option value="favorites">Favorites Only</option>
-            </select>
+            <input
+                type="text"
+                id="resourceType"
+                placeholder="Type (Notes, Course, Video...)"
+                required
+            >
 
-            <div class="resource-count" id="resourceCount">
-                Loading...
-            </div>
+            <input
+                type="url"
+                id="link"
+                placeholder="https://example.com"
+                required
+            >
 
+            <textarea
+                id="description"
+                placeholder="Short description (optional, max 500 characters)"
+                maxlength="500"
+            ></textarea>
+
+            <input
+                type="file"
+                id="newResourceFile"
+                class="file-input"
+                accept="application/pdf,.pdf"
+            >
+
+            <button
+                type="submit"
+                class="form-button"
+            >
+                Add Resource
+            </button>
+
+            <div
+                id="formMessage"
+                class="form-message"
+            ></div>
+
+        </form>
+    </section>
+
+    <div class="toolbar">
+
+        <input
+            type="text"
+            id="searchInput"
+            class="search-box"
+            placeholder="Search by subject, title, type, or description..."
+        >
+
+        <select
+            id="typeFilter"
+            class="type-filter"
+        >
+            <option value="">
+                All Types
+            </option>
+        </select>
+
+        <select
+            id="favoriteFilter"
+            class="favorite-filter"
+        >
+            <option value="">
+                All Resources
+            </option>
+
+            <option value="favorites">
+                Favorites Only
+            </option>
+        </select>
+
+        <div
+            class="resource-count"
+            id="resourceCount"
+        >
+            Loading...
         </div>
 
-        <div id="resources">
-            <div class="message">
-                Loading resources...
-            </div>
+    </div>
+
+    <div id="resources">
+        <div class="message">
+            Loading resources...
         </div>
+    </div>
 
-    </main>
+</main>
 
-    <footer>
-        Campus Knowledge Hub
-    </footer>
+<footer>
+    Campus Knowledge Hub
+</footer>
 
-    <script>
+<script>
 
-        let allResources = [];
+    let allResources = [];
 
 
-        async function loadResources() {
+    async function loadResources() {
 
-            try {
+        try {
 
-                const response = await fetch("/resources");
+            const response = await fetch(
+                "/resources"
+            );
 
-                if (!response.ok) {
-                    throw new Error("Failed to load resources");
-                }
-
-                allResources = await response.json();
-
-                updateTypeFilterOptions();
-                applyFilters();
-
-            } catch (error) {
-
-                document.getElementById("resources").innerHTML = `
-                    <div class="message">
-                        Unable to load resources.
-                    </div>
-                `;
-
-                document.getElementById("resourceCount").textContent = "Error";
+            if (!response.ok) {
+                throw new Error(
+                    "Failed to load resources"
+                );
             }
-        }
 
+            allResources =
+                await response.json();
 
-        function updateTypeFilterOptions() {
+            updateTypeFilterOptions();
+            applyFilters();
 
-            const typeFilter =
-                document.getElementById("typeFilter");
+        } catch (error) {
 
-            const currentValue = typeFilter.value;
-
-            const types = [
-                ...new Set(
-                    allResources.map(resource =>
-                        resource.resource_type.trim()
-                    )
-                )
-            ].sort((a, b) => a.localeCompare(b));
-
-            typeFilter.innerHTML = `
-                <option value="">All Types</option>
+            document.getElementById(
+                "resources"
+            ).innerHTML = `
+                <div class="message">
+                    Unable to load resources.
+                </div>
             `;
 
-            types.forEach(type => {
-
-                const option =
-                    document.createElement("option");
-
-                option.value = type;
-                option.textContent = type;
-
-                typeFilter.appendChild(option);
-            });
-
-            if (types.includes(currentValue)) {
-                typeFilter.value = currentValue;
-            }
+            document.getElementById(
+                "resourceCount"
+            ).textContent = "Error";
         }
+    }
 
 
-        function applyFilters() {
+    function updateTypeFilterOptions() {
 
-            const keyword = document
-                .getElementById("searchInput")
-                .value
-                .toLowerCase()
-                .trim();
+        const typeFilter =
+            document.getElementById(
+                "typeFilter"
+            );
 
-            const selectedType = document
-                .getElementById("typeFilter")
-                .value
-                .toLowerCase()
-                .trim();
+        const currentValue =
+            typeFilter.value;
 
-            const favoriteFilter =
-                document.getElementById("favoriteFilter").value;
+        const types = [
+            ...new Set(
+                allResources.map(
+                    resource =>
+                        resource.resource_type.trim()
+                )
+            )
+        ].sort(
+            (a, b) =>
+                a.localeCompare(b)
+        );
 
-            const filteredResources = allResources.filter(resource => {
+        typeFilter.innerHTML = `
+            <option value="">
+                All Types
+            </option>
+        `;
 
-                const description =
-                    (resource.description || "").toLowerCase();
+        types.forEach(type => {
 
-                const matchesSearch =
-                    resource.subject.toLowerCase().includes(keyword) ||
-                    resource.title.toLowerCase().includes(keyword) ||
-                    resource.resource_type.toLowerCase().includes(keyword) ||
-                    description.includes(keyword);
-
-                const matchesType =
-                    !selectedType ||
-                    resource.resource_type.toLowerCase() === selectedType;
-
-                const matchesFavorite =
-                    favoriteFilter !== "favorites" ||
-                    resource.is_favorite === true;
-
-                return (
-                    matchesSearch &&
-                    matchesType &&
-                    matchesFavorite
+            const option =
+                document.createElement(
+                    "option"
                 );
-            });
 
-            displayResources(filteredResources);
+            option.value = type;
+            option.textContent = type;
+
+            typeFilter.appendChild(
+                option
+            );
+        });
+
+        if (
+            types.includes(
+                currentValue
+            )
+        ) {
+            typeFilter.value =
+                currentValue;
+        }
+    }
+
+
+    function applyFilters() {
+
+        const keyword =
+            document
+                .getElementById(
+                    "searchInput"
+                )
+                .value
+                .toLowerCase()
+                .trim();
+
+        const selectedType =
+            document
+                .getElementById(
+                    "typeFilter"
+                )
+                .value
+                .toLowerCase()
+                .trim();
+
+        const favoriteFilter =
+            document
+                .getElementById(
+                    "favoriteFilter"
+                )
+                .value;
+
+        const filteredResources =
+            allResources.filter(
+                resource => {
+
+                    const description =
+                        (
+                            resource.description
+                            || ""
+                        )
+                        .toLowerCase();
+
+                    const matchesSearch =
+                        resource.subject
+                            .toLowerCase()
+                            .includes(keyword)
+                        ||
+                        resource.title
+                            .toLowerCase()
+                            .includes(keyword)
+                        ||
+                        resource.resource_type
+                            .toLowerCase()
+                            .includes(keyword)
+                        ||
+                        description.includes(
+                            keyword
+                        );
+
+                    const matchesType =
+                        !selectedType
+                        ||
+                        resource.resource_type
+                            .toLowerCase()
+                        === selectedType;
+
+                    const matchesFavorite =
+                        favoriteFilter !==
+                        "favorites"
+                        ||
+                        resource.is_favorite === true;
+
+                    return (
+                        matchesSearch
+                        &&
+                        matchesType
+                        &&
+                        matchesFavorite
+                    );
+                }
+            );
+
+        displayResources(
+            filteredResources
+        );
+    }
+
+
+    function displayResources(
+        resources
+    ) {
+
+        const container =
+            document.getElementById(
+                "resources"
+            );
+
+        const count =
+            document.getElementById(
+                "resourceCount"
+            );
+
+        count.textContent =
+            `${resources.length} resource${
+                resources.length === 1
+                    ? ""
+                    : "s"
+            }`;
+
+        if (
+            resources.length === 0
+        ) {
+
+            container.innerHTML = `
+                <div class="message">
+                    No resources found.
+                </div>
+            `;
+
+            return;
         }
 
+        container.innerHTML =
+            resources.map(
+                resource => `
 
-        function displayResources(resources) {
-
-            const container =
-                document.getElementById("resources");
-
-            const count =
-                document.getElementById("resourceCount");
-
-            count.textContent =
-                `${resources.length} resource${resources.length === 1 ? "" : "s"}`;
-
-            if (resources.length === 0) {
-
-                container.innerHTML = `
-                    <div class="message">
-                        No resources found.
-                    </div>
-                `;
-
-                return;
-            }
-
-            container.innerHTML = resources.map(resource => `
-
-                <article class="resource-card">
+                <article
+                    class="resource-card"
+                >
 
                     <span class="badge">
-                        ${escapeHtml(resource.resource_type)}
+                        ${escapeHtml(
+                            resource.resource_type
+                        )}
                     </span>
 
                     ${
                         resource.is_favorite
-                            ? `<span class="favorite-badge">★ Favorite</span>`
+                            ? `
+                                <span class="favorite-badge">
+                                    ★ Favorite
+                                </span>
+                              `
                             : ""
                     }
 
                     <h2>
-                        ${escapeHtml(resource.title)}
+                        ${escapeHtml(
+                            resource.title
+                        )}
                     </h2>
 
                     <p>
                         <strong>Subject:</strong>
-                        ${escapeHtml(resource.subject)}
+                        ${escapeHtml(
+                            resource.subject
+                        )}
                     </p>
 
                     ${
@@ -597,7 +779,9 @@
                             ? `
                                 <div class="description">
                                     <strong>Description:</strong><br>
-                                    ${escapeHtml(resource.description)}
+                                    ${escapeHtml(
+                                        resource.description
+                                    )}
                                 </div>
                               `
                             : ""
@@ -605,32 +789,115 @@
 
                     <a
                         class="resource-link"
-                        href="${escapeAttribute(resource.link)}"
+                        href="${escapeAttribute(
+                            resource.link
+                        )}"
                         target="_blank"
                         rel="noopener noreferrer"
                     >
                         Open Resource
                     </a>
 
+                    ${
+                        resource.has_file
+                            ? `
+                                <div>
+                                    <span class="file-badge">
+                                        📄 ${
+                                            escapeHtml(
+                                                resource.file_name
+                                            )
+                                        }
+                                    </span>
+
+                                    <br>
+
+                                    <a
+                                        class="download-link"
+                                        href="/resources/${
+                                            resource.id
+                                        }/file"
+                                    >
+                                        Download PDF
+                                    </a>
+                                </div>
+                              `
+                            : ""
+                    }
+
+                    <div class="file-section">
+
+                        <strong>
+                            ${
+                                resource.has_file
+                                    ? "Replace PDF"
+                                    : "Attach PDF"
+                            }
+                        </strong>
+
+                        <input
+                            type="file"
+                            id="file-${
+                                resource.id
+                            }"
+                            accept="application/pdf,.pdf"
+                        >
+
+                        <button
+                            class="upload-button"
+                            onclick="uploadFile(
+                                ${resource.id}
+                            )"
+                        >
+                            ${
+                                resource.has_file
+                                    ? "Replace PDF"
+                                    : "Upload PDF"
+                            }
+                        </button>
+
+                        <div
+                            class="file-message"
+                            id="file-message-${
+                                resource.id
+                            }"
+                        ></div>
+
+                    </div>
+
                     <div class="card-actions">
 
                         <button
-                            class="favorite-button ${resource.is_favorite ? "active" : ""}"
-                            onclick="toggleFavorite(${resource.id})"
+                            class="favorite-button ${
+                                resource.is_favorite
+                                    ? "active"
+                                    : ""
+                            }"
+                            onclick="toggleFavorite(
+                                ${resource.id}
+                            )"
                         >
-                            ${resource.is_favorite ? "★ Favorited" : "☆ Favorite"}
+                            ${
+                                resource.is_favorite
+                                    ? "★ Favorited"
+                                    : "☆ Favorite"
+                            }
                         </button>
 
                         <button
                             class="edit-button"
-                            onclick="editResource(${resource.id})"
+                            onclick="editResource(
+                                ${resource.id}
+                            )"
                         >
                             Edit
                         </button>
 
                         <button
                             class="delete-button"
-                            onclick="deleteResource(${resource.id})"
+                            onclick="deleteResource(
+                                ${resource.id}
+                            )"
                         >
                             Delete
                         </button>
@@ -639,98 +906,189 @@
 
                 </article>
 
-            `).join("");
-        }
+            `
+            ).join("");
+    }
 
 
-        function escapeHtml(value) {
+    function escapeHtml(value) {
 
-            return String(value)
-                .replaceAll("&", "&amp;")
-                .replaceAll("<", "&lt;")
-                .replaceAll(">", "&gt;")
-                .replaceAll('"', "&quot;")
-                .replaceAll("'", "&#039;");
-        }
-
-
-        function escapeAttribute(value) {
-            return escapeHtml(value);
-        }
-
-
-        document
-            .getElementById("searchInput")
-            .addEventListener("input", applyFilters);
-
-
-        document
-            .getElementById("typeFilter")
-            .addEventListener("change", applyFilters);
-
-
-        document
-            .getElementById("favoriteFilter")
-            .addEventListener("change", applyFilters);
+        return String(value)
+            .replaceAll(
+                "&",
+                "&amp;"
+            )
+            .replaceAll(
+                "<",
+                "&lt;"
+            )
+            .replaceAll(
+                ">",
+                "&gt;"
+            )
+            .replaceAll(
+                '"',
+                "&quot;"
+            )
+            .replaceAll(
+                "'",
+                "&#039;"
+            );
+    }
 
 
-        document
-            .getElementById("resourceForm")
-            .addEventListener("submit", async function (event) {
+    function escapeAttribute(value) {
+
+        return escapeHtml(value);
+    }
+
+
+    document
+        .getElementById(
+            "searchInput"
+        )
+        .addEventListener(
+            "input",
+            applyFilters
+        );
+
+
+    document
+        .getElementById(
+            "typeFilter"
+        )
+        .addEventListener(
+            "change",
+            applyFilters
+        );
+
+
+    document
+        .getElementById(
+            "favoriteFilter"
+        )
+        .addEventListener(
+            "change",
+            applyFilters
+        );
+
+
+    document
+        .getElementById(
+            "resourceForm"
+        )
+        .addEventListener(
+            "submit",
+            async function(event) {
 
                 event.preventDefault();
 
                 const message =
-                    document.getElementById("formMessage");
+                    document.getElementById(
+                        "formMessage"
+                    );
 
                 const resource = {
 
                     subject:
-                        document.getElementById("subject").value.trim(),
+                        document
+                            .getElementById(
+                                "subject"
+                            )
+                            .value
+                            .trim(),
 
                     title:
-                        document.getElementById("title").value.trim(),
+                        document
+                            .getElementById(
+                                "title"
+                            )
+                            .value
+                            .trim(),
 
                     resource_type:
-                        document.getElementById("resourceType").value.trim(),
+                        document
+                            .getElementById(
+                                "resourceType"
+                            )
+                            .value
+                            .trim(),
 
                     link:
-                        document.getElementById("link").value.trim(),
+                        document
+                            .getElementById(
+                                "link"
+                            )
+                            .value
+                            .trim(),
 
                     description:
-                        document.getElementById("description").value.trim()
+                        document
+                            .getElementById(
+                                "description"
+                            )
+                            .value
+                            .trim()
                 };
 
-                message.textContent = "Adding resource...";
+                const selectedFile =
+                    document.getElementById(
+                        "newResourceFile"
+                    ).files[0];
+
+                message.textContent =
+                    "Adding resource...";
 
                 try {
 
-                    const response = await fetch("/resources", {
+                    const response =
+                        await fetch(
+                            "/resources",
+                            {
+                                method: "POST",
 
-                        method: "POST",
+                                headers: {
+                                    "Content-Type":
+                                        "application/json"
+                                },
 
-                        headers: {
-                            "Content-Type": "application/json"
-                        },
+                                body:
+                                    JSON.stringify(
+                                        resource
+                                    )
+                            }
+                        );
 
-                        body: JSON.stringify(resource)
-                    });
-
-                    const result = await response.json();
+                    const result =
+                        await response.json();
 
                     if (!response.ok) {
+
                         throw new Error(
-                            Array.isArray(result.detail)
-                                ? result.detail
-                                      .map(error => error.msg)
-                                      .join(", ")
-                                : result.detail ||
-                                  "Failed to add resource"
+                            formatApiError(
+                                result
+                            )
+                        );
+                    }
+
+                    const resourceId =
+                        result.id;
+
+                    if (selectedFile) {
+
+                        message.textContent =
+                            "Resource added. Uploading PDF...";
+
+                        await uploadFileData(
+                            resourceId,
+                            selectedFile
                         );
                     }
 
                     message.textContent =
-                        "Resource added successfully.";
+                        selectedFile
+                            ? "Resource and PDF added successfully."
+                            : "Resource added successfully.";
 
                     this.reset();
 
@@ -738,196 +1096,353 @@
 
                 } catch (error) {
 
-                    message.textContent = error.message;
+                    message.textContent =
+                        error.message;
                 }
-            });
+            }
+        );
 
 
-        async function toggleFavorite(resourceId) {
+    function formatApiError(
+        result
+    ) {
 
-            try {
+        if (
+            Array.isArray(
+                result.detail
+            )
+        ) {
 
-                const response = await fetch(
+            return result.detail
+                .map(
+                    error =>
+                        error.msg
+                )
+                .join(", ");
+        }
+
+        return (
+            result.detail
+            ||
+            "Request failed"
+        );
+    }
+
+
+    async function uploadFile(
+        resourceId
+    ) {
+
+        const fileInput =
+            document.getElementById(
+                `file-${resourceId}`
+            );
+
+        const message =
+            document.getElementById(
+                `file-message-${resourceId}`
+            );
+
+        const selectedFile =
+            fileInput.files[0];
+
+        if (!selectedFile) {
+
+            message.textContent =
+                "Please choose a PDF first.";
+
+            return;
+        }
+
+        if (
+            selectedFile.type
+            !== "application/pdf"
+        ) {
+
+            message.textContent =
+                "Only PDF files are allowed.";
+
+            return;
+        }
+
+        message.textContent =
+            "Uploading PDF...";
+
+        try {
+
+            await uploadFileData(
+                resourceId,
+                selectedFile
+            );
+
+            message.textContent =
+                "PDF uploaded successfully.";
+
+            await loadResources();
+
+        } catch (error) {
+
+            message.textContent =
+                error.message;
+        }
+    }
+
+
+    async function uploadFileData(
+        resourceId,
+        file
+    ) {
+
+        const formData =
+            new FormData();
+
+        formData.append(
+            "file",
+            file
+        );
+
+        const response =
+            await fetch(
+                `/resources/${resourceId}/file`,
+                {
+                    method: "POST",
+                    body: formData
+                }
+            );
+
+        const result =
+            await response.json();
+
+        if (!response.ok) {
+
+            throw new Error(
+                formatApiError(
+                    result
+                )
+            );
+        }
+
+        return result;
+    }
+
+
+    async function toggleFavorite(
+        resourceId
+    ) {
+
+        try {
+
+            const response =
+                await fetch(
                     `/resources/${resourceId}/favorite`,
                     {
                         method: "PATCH"
                     }
                 );
 
-                const result = await response.json();
+            const result =
+                await response.json();
 
-                if (!response.ok) {
-                    throw new Error(
-                        result.detail ||
-                        "Failed to update favorite status"
-                    );
-                }
+            if (!response.ok) {
 
-                await loadResources();
-
-            } catch (error) {
-
-                alert(error.message);
+                throw new Error(
+                    formatApiError(
+                        result
+                    )
+                );
             }
+
+            await loadResources();
+
+        } catch (error) {
+
+            alert(
+                error.message
+            );
         }
+    }
 
 
-        async function deleteResource(resourceId) {
+    async function deleteResource(
+        resourceId
+    ) {
 
-            const resource = allResources.find(
-                item => item.id === resourceId
+        const resource =
+            allResources.find(
+                item =>
+                    item.id === resourceId
             );
 
-            if (!resource) {
-                return;
-            }
+        if (!resource) {
+            return;
+        }
 
-            const confirmed = confirm(
+        const confirmed =
+            confirm(
                 `Delete "${resource.title}"?`
             );
 
-            if (!confirmed) {
-                return;
-            }
+        if (!confirmed) {
+            return;
+        }
 
-            try {
+        try {
 
-                const response = await fetch(
+            const response =
+                await fetch(
                     `/resources/${resourceId}`,
                     {
                         method: "DELETE"
                     }
                 );
 
-                const result = await response.json();
+            const result =
+                await response.json();
 
-                if (!response.ok) {
-                    throw new Error(
-                        result.detail ||
-                        "Failed to delete resource"
-                    );
-                }
+            if (!response.ok) {
 
-                await loadResources();
-
-            } catch (error) {
-
-                alert(error.message);
+                throw new Error(
+                    formatApiError(
+                        result
+                    )
+                );
             }
+
+            await loadResources();
+
+        } catch (error) {
+
+            alert(
+                error.message
+            );
         }
+    }
 
 
-        async function editResource(resourceId) {
+    async function editResource(
+        resourceId
+    ) {
 
-            const resource = allResources.find(
-                item => item.id === resourceId
+        const resource =
+            allResources.find(
+                item =>
+                    item.id === resourceId
             );
 
-            if (!resource) {
-                return;
-            }
+        if (!resource) {
+            return;
+        }
 
-            const subject = prompt(
+        const subject =
+            prompt(
                 "Subject:",
                 resource.subject
             );
 
-            if (subject === null) {
-                return;
-            }
+        if (subject === null) {
+            return;
+        }
 
-            const title = prompt(
+        const title =
+            prompt(
                 "Title:",
                 resource.title
             );
 
-            if (title === null) {
-                return;
-            }
+        if (title === null) {
+            return;
+        }
 
-            const resourceType = prompt(
+        const resourceType =
+            prompt(
                 "Type:",
                 resource.resource_type
             );
 
-            if (resourceType === null) {
-                return;
-            }
+        if (resourceType === null) {
+            return;
+        }
 
-            const link = prompt(
+        const link =
+            prompt(
                 "Link:",
                 resource.link
             );
 
-            if (link === null) {
-                return;
-            }
+        if (link === null) {
+            return;
+        }
 
-            const description = prompt(
+        const description =
+            prompt(
                 "Description:",
                 resource.description || ""
             );
 
-            if (description === null) {
-                return;
-            }
+        if (description === null) {
+            return;
+        }
 
-            try {
+        try {
 
-                const response = await fetch(
+            const response =
+                await fetch(
                     `/resources/${resourceId}`,
                     {
                         method: "PUT",
 
                         headers: {
-                            "Content-Type": "application/json"
+                            "Content-Type":
+                                "application/json"
                         },
 
-                        body: JSON.stringify({
+                        body:
+                            JSON.stringify({
 
-                            subject:
-                                subject.trim(),
+                                subject:
+                                    subject.trim(),
 
-                            title:
-                                title.trim(),
+                                title:
+                                    title.trim(),
 
-                            resource_type:
-                                resourceType.trim(),
+                                resource_type:
+                                    resourceType.trim(),
 
-                            link:
-                                link.trim(),
+                                link:
+                                    link.trim(),
 
-                            description:
-                                description.trim()
-                        })
+                                description:
+                                    description.trim()
+                            })
                     }
                 );
 
-                const result = await response.json();
+            const result =
+                await response.json();
 
-                if (!response.ok) {
-                    throw new Error(
-                        Array.isArray(result.detail)
-                            ? result.detail
-                                  .map(error => error.msg)
-                                  .join(", ")
-                            : result.detail ||
-                              "Failed to update resource"
-                    );
-                }
+            if (!response.ok) {
 
-                await loadResources();
-
-            } catch (error) {
-
-                alert(error.message);
+                throw new Error(
+                    formatApiError(
+                        result
+                    )
+                );
             }
+
+            await loadResources();
+
+        } catch (error) {
+
+            alert(
+                error.message
+            );
         }
+    }
 
 
-        loadResources();
+    loadResources();
 
-    </script>
+</script>
 
 </body>
 </html>
