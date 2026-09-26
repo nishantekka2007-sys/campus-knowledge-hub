@@ -304,6 +304,60 @@ def test_update_resource_api_rejects_invalid_url(tmp_path, monkeypatch):
     assert response.status_code == 422
 
 
+def test_toggle_favorite_api(tmp_path, monkeypatch):
+    setup_test_database(tmp_path, monkeypatch)
+
+    create_response = client.post(
+        "/resources",
+        json={
+            "subject": "Java",
+            "title": "Java Basics",
+            "resource_type": "Course",
+            "link": "https://example.com/java",
+            "description": "Java programming notes.",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    resource_id = create_response.json()["id"]
+
+    get_response = client.get(
+        f"/resources/{resource_id}"
+    )
+
+    assert get_response.status_code == 200
+    assert get_response.json()["is_favorite"] is False
+
+    favorite_response = client.patch(
+        f"/resources/{resource_id}/favorite"
+    )
+
+    assert favorite_response.status_code == 200
+    assert favorite_response.json()["is_favorite"] is True
+
+    get_response = client.get(
+        f"/resources/{resource_id}"
+    )
+
+    assert get_response.status_code == 200
+    assert get_response.json()["is_favorite"] is True
+
+    unfavorite_response = client.patch(
+        f"/resources/{resource_id}/favorite"
+    )
+
+    assert unfavorite_response.status_code == 200
+    assert unfavorite_response.json()["is_favorite"] is False
+
+    get_response = client.get(
+        f"/resources/{resource_id}"
+    )
+
+    assert get_response.status_code == 200
+    assert get_response.json()["is_favorite"] is False
+
+
 def test_delete_resource_api(tmp_path, monkeypatch):
     setup_test_database(tmp_path, monkeypatch)
 
