@@ -47,6 +47,62 @@
             padding: 0 20px;
         }
 
+        .add-section {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            padding: 24px;
+            margin-bottom: 30px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.05);
+        }
+
+        .add-section h2 {
+            margin-bottom: 18px;
+            color: #111827;
+        }
+
+        .resource-form {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .resource-form input {
+            width: 100%;
+            padding: 13px 15px;
+            border: 1px solid #d1d5db;
+            border-radius: 9px;
+            font-size: 15px;
+            outline: none;
+        }
+
+        .resource-form input:focus {
+            border-color: #2563eb;
+        }
+
+        .form-button {
+            grid-column: 1 / -1;
+            border: none;
+            background: #2563eb;
+            color: white;
+            padding: 13px 18px;
+            border-radius: 9px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .form-button:hover {
+            background: #1d4ed8;
+        }
+
+        .form-message {
+            grid-column: 1 / -1;
+            min-height: 24px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
         .toolbar {
             display: flex;
             gap: 15px;
@@ -149,7 +205,7 @@
             font-size: 14px;
         }
 
-        @media (max-width: 600px) {
+        @media (max-width: 700px) {
             header h1 {
                 font-size: 32px;
             }
@@ -160,6 +216,10 @@
 
             main {
                 margin-top: 25px;
+            }
+
+            .resource-form {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -176,7 +236,50 @@
 
     <main>
 
+        <section class="add-section">
+            <h2>Add a Resource</h2>
+
+            <form id="resourceForm" class="resource-form">
+
+                <input
+                    type="text"
+                    id="subject"
+                    placeholder="Subject"
+                    required
+                >
+
+                <input
+                    type="text"
+                    id="title"
+                    placeholder="Resource title"
+                    required
+                >
+
+                <input
+                    type="text"
+                    id="resourceType"
+                    placeholder="Type (Notes, Course, Video...)"
+                    required
+                >
+
+                <input
+                    type="url"
+                    id="link"
+                    placeholder="https://example.com"
+                    required
+                >
+
+                <button type="submit" class="form-button">
+                    Add Resource
+                </button>
+
+                <div id="formMessage" class="form-message"></div>
+
+            </form>
+        </section>
+
         <div class="toolbar">
+
             <input
                 type="text"
                 id="searchInput"
@@ -187,6 +290,7 @@
             <div class="resource-count" id="resourceCount">
                 Loading...
             </div>
+
         </div>
 
         <div id="resources">
@@ -231,7 +335,8 @@
             const container = document.getElementById("resources");
             const count = document.getElementById("resourceCount");
 
-            count.textContent = `${resources.length} resource${resources.length === 1 ? "" : "s"}`;
+            count.textContent =
+                `${resources.length} resource${resources.length === 1 ? "" : "s"}`;
 
             if (resources.length === 0) {
                 container.innerHTML = `
@@ -284,17 +389,63 @@
             return escapeHtml(value);
         }
 
-        document.getElementById("searchInput").addEventListener("input", function () {
-            const keyword = this.value.toLowerCase().trim();
+        document
+            .getElementById("searchInput")
+            .addEventListener("input", function () {
 
-            const filteredResources = allResources.filter(resource =>
-                resource.subject.toLowerCase().includes(keyword) ||
-                resource.title.toLowerCase().includes(keyword) ||
-                resource.resource_type.toLowerCase().includes(keyword)
-            );
+                const keyword = this.value.toLowerCase().trim();
 
-            displayResources(filteredResources);
-        });
+                const filteredResources = allResources.filter(resource =>
+                    resource.subject.toLowerCase().includes(keyword) ||
+                    resource.title.toLowerCase().includes(keyword) ||
+                    resource.resource_type.toLowerCase().includes(keyword)
+                );
+
+                displayResources(filteredResources);
+            });
+
+        document
+            .getElementById("resourceForm")
+            .addEventListener("submit", async function (event) {
+
+                event.preventDefault();
+
+                const message = document.getElementById("formMessage");
+
+                const resource = {
+                    subject: document.getElementById("subject").value.trim(),
+                    title: document.getElementById("title").value.trim(),
+                    resource_type: document.getElementById("resourceType").value.trim(),
+                    link: document.getElementById("link").value.trim()
+                };
+
+                message.textContent = "Adding resource...";
+
+                try {
+                    const response = await fetch("/resources", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify(resource)
+                    });
+
+                    const result = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(result.detail || "Failed to add resource");
+                    }
+
+                    message.textContent = "Resource added successfully.";
+
+                    this.reset();
+
+                    await loadResources();
+
+                } catch (error) {
+                    message.textContent = error.message;
+                }
+            });
 
         loadResources();
     </script>
