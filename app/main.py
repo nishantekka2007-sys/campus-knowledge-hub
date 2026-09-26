@@ -25,6 +25,7 @@ class Resource(BaseModel):
     title: str = Field(min_length=1)
     resource_type: str = Field(min_length=1)
     link: str = Field(min_length=1)
+    description: str = Field(default="", max_length=500)
 
     @field_validator("subject", "title", "resource_type", "link")
     @classmethod
@@ -35,6 +36,11 @@ class Resource(BaseModel):
             raise ValueError("Field cannot be empty")
 
         return value
+
+    @field_validator("description")
+    @classmethod
+    def validate_description(cls, value: str) -> str:
+        return value.strip()
 
     @field_validator("link")
     @classmethod
@@ -62,10 +68,22 @@ def create_table():
             subject TEXT NOT NULL,
             title TEXT NOT NULL,
             resource_type TEXT NOT NULL,
-            link TEXT NOT NULL
+            link TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT ''
         )
         """
     )
+
+    cursor.execute("PRAGMA table_info(resources)")
+    columns = [column[1] for column in cursor.fetchall()]
+
+    if "description" not in columns:
+        cursor.execute(
+            """
+            ALTER TABLE resources
+            ADD COLUMN description TEXT NOT NULL DEFAULT ''
+            """
+        )
 
     connection.commit()
     connection.close()
@@ -81,6 +99,10 @@ def get_required_input(prompt):
         print("This field cannot be empty. Please try again.")
 
 
+def get_optional_input(prompt):
+    return input(prompt).strip()
+
+
 def add_resource():
     print("\n--- Add Resource ---")
 
@@ -88,16 +110,29 @@ def add_resource():
     title = get_required_input("Title: ")
     resource_type = get_required_input("Type: ")
     link = get_required_input("Link: ")
+    description = get_optional_input("Description: ")
 
     connection = connect_database()
     cursor = connection.cursor()
 
     cursor.execute(
         """
-        INSERT INTO resources (subject, title, resource_type, link)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO resources (
+            subject,
+            title,
+            resource_type,
+            link,
+            description
+        )
+        VALUES (?, ?, ?, ?, ?)
         """,
-        (subject, title, resource_type, link),
+        (
+            subject,
+            title,
+            resource_type,
+            link,
+            description,
+        ),
     )
 
     connection.commit()
@@ -112,7 +147,13 @@ def view_resources():
 
     cursor.execute(
         """
-        SELECT id, subject, title, resource_type, link
+        SELECT
+            id,
+            subject,
+            title,
+            resource_type,
+            link,
+            description
         FROM resources
         ORDER BY id
         """
@@ -129,13 +170,21 @@ def view_resources():
         return
 
     for resource in resources:
-        resource_id, subject, title, resource_type, link = resource
+        (
+            resource_id,
+            subject,
+            title,
+            resource_type,
+            link,
+            description,
+        ) = resource
 
         print(f"\nResource #{resource_id}")
         print(f"Subject: {subject}")
         print(f"Title: {title}")
         print(f"Type: {resource_type}")
         print(f"Link: {link}")
+        print(f"Description: {description or 'No description provided.'}")
 
 
 def search_resources():
@@ -150,14 +199,26 @@ def search_resources():
 
     cursor.execute(
         """
-        SELECT id, subject, title, resource_type, link
+        SELECT
+            id,
+            subject,
+            title,
+            resource_type,
+            link,
+            description
         FROM resources
         WHERE subject LIKE ?
            OR title LIKE ?
            OR resource_type LIKE ?
+           OR description LIKE ?
         ORDER BY id
         """,
-        (search_term, search_term, search_term),
+        (
+            search_term,
+            search_term,
+            search_term,
+            search_term,
+        ),
     )
 
     resources = cursor.fetchall()
@@ -171,13 +232,21 @@ def search_resources():
     print(f"\nFound {len(resources)} resource(s):")
 
     for resource in resources:
-        resource_id, subject, title, resource_type, link = resource
+        (
+            resource_id,
+            subject,
+            title,
+            resource_type,
+            link,
+            description,
+        ) = resource
 
         print(f"\nResource #{resource_id}")
         print(f"Subject: {subject}")
         print(f"Title: {title}")
         print(f"Type: {resource_type}")
         print(f"Link: {link}")
+        print(f"Description: {description or 'No description provided.'}")
 
 
 def update_resource():
@@ -190,7 +259,13 @@ def update_resource():
 
     cursor.execute(
         """
-        SELECT id, subject, title, resource_type, link
+        SELECT
+            id,
+            subject,
+            title,
+            resource_type,
+            link,
+            description
         FROM resources
         WHERE id = ?
         """,
@@ -209,6 +284,9 @@ def update_resource():
     print(f"Title: {resource[2]}")
     print(f"Type: {resource[3]}")
     print(f"Link: {resource[4]}")
+    print(
+        f"Description: {resource[5] or 'No description provided.'}"
+    )
 
     print("\nEnter the new information.")
 
@@ -216,6 +294,9 @@ def update_resource():
     new_title = get_required_input("New title: ")
     new_type = get_required_input("New type: ")
     new_link = get_required_input("New link: ")
+    new_description = get_optional_input(
+        "New description: "
+    )
 
     cursor.execute(
         """
@@ -223,7 +304,8 @@ def update_resource():
         SET subject = ?,
             title = ?,
             resource_type = ?,
-            link = ?
+            link = ?,
+            description = ?
         WHERE id = ?
         """,
         (
@@ -231,6 +313,7 @@ def update_resource():
             new_title,
             new_type,
             new_link,
+            new_description,
             resource_id,
         ),
     )
@@ -308,7 +391,13 @@ def get_resources():
 
     cursor.execute(
         """
-        SELECT id, subject, title, resource_type, link
+        SELECT
+            id,
+            subject,
+            title,
+            resource_type,
+            link,
+            description
         FROM resources
         ORDER BY id
         """
@@ -329,7 +418,13 @@ def get_resource(resource_id: int):
 
     cursor.execute(
         """
-        SELECT id, subject, title, resource_type, link
+        SELECT
+            id,
+            subject,
+            title,
+            resource_type,
+            link,
+            description
         FROM resources
         WHERE id = ?
         """,
@@ -356,14 +451,21 @@ def create_resource(resource: Resource):
 
     cursor.execute(
         """
-        INSERT INTO resources (subject, title, resource_type, link)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO resources (
+            subject,
+            title,
+            resource_type,
+            link,
+            description
+        )
+        VALUES (?, ?, ?, ?, ?)
         """,
         (
             resource.subject,
             resource.title,
             resource.resource_type,
             resource.link,
+            resource.description,
         ),
     )
 
@@ -379,7 +481,10 @@ def create_resource(resource: Resource):
 
 
 @app.put("/resources/{resource_id}")
-def update_resource_api(resource_id: int, resource: Resource):
+def update_resource_api(
+    resource_id: int,
+    resource: Resource,
+):
     connection = connect_database()
     cursor = connection.cursor()
 
@@ -404,7 +509,8 @@ def update_resource_api(resource_id: int, resource: Resource):
         SET subject = ?,
             title = ?,
             resource_type = ?,
-            link = ?
+            link = ?,
+            description = ?
         WHERE id = ?
         """,
         (
@@ -412,6 +518,7 @@ def update_resource_api(resource_id: int, resource: Resource):
             resource.title,
             resource.resource_type,
             resource.link,
+            resource.description,
             resource_id,
         ),
     )
@@ -469,14 +576,26 @@ def search_resources_api(keyword: str):
 
     cursor.execute(
         """
-        SELECT id, subject, title, resource_type, link
+        SELECT
+            id,
+            subject,
+            title,
+            resource_type,
+            link,
+            description
         FROM resources
         WHERE subject LIKE ?
            OR title LIKE ?
            OR resource_type LIKE ?
+           OR description LIKE ?
         ORDER BY id
         """,
-        (search_term, search_term, search_term),
+        (
+            search_term,
+            search_term,
+            search_term,
+            search_term,
+        ),
     )
 
     resources = [dict(row) for row in cursor.fetchall()]
