@@ -1,7 +1,7 @@
 import sqlite3
 from urllib.parse import urlparse
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field, field_validator
@@ -317,7 +317,9 @@ def update_resource():
     new_title = get_required_input("New title: ")
     new_type = get_required_input("New type: ")
     new_link = get_required_input("New link: ")
-    new_description = get_optional_input("New description: ")
+    new_description = get_optional_input(
+        "New description: "
+    )
 
     cursor.execute(
         """
@@ -405,48 +407,53 @@ def home(request: Request):
 
 
 @app.get("/resources")
-def get_resources(favorite: bool = False):
+def get_resources(
+    favorite: bool = False,
+    resource_type: str | None = Query(
+        default=None,
+        alias="type",
+    ),
+):
     connection = connect_database()
     connection.row_factory = sqlite3.Row
     cursor = connection.cursor()
 
+    query = """
+        SELECT
+            id,
+            subject,
+            title,
+            resource_type,
+            link,
+            description,
+            is_favorite
+        FROM resources
+    """
+
+    conditions = []
+    parameters = []
+
     if favorite:
-        cursor.execute(
-            """
-            SELECT
-                id,
-                subject,
-                title,
-                resource_type,
-                link,
-                description,
-                is_favorite
-            FROM resources
-            WHERE is_favorite = 1
-            ORDER BY id
-            """
-        )
-    else:
-        cursor.execute(
-            """
-            SELECT
-                id,
-                subject,
-                title,
-                resource_type,
-                link,
-                description,
-                is_favorite
-            FROM resources
-            ORDER BY id
-            """
-        )
+        conditions.append("is_favorite = 1")
+
+    if resource_type:
+        conditions.append("LOWER(resource_type) = LOWER(?)")
+        parameters.append(resource_type.strip())
+
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+
+    query += " ORDER BY id"
+
+    cursor.execute(query, parameters)
 
     resources = []
 
     for row in cursor.fetchall():
         resource = dict(row)
-        resource["is_favorite"] = bool(resource["is_favorite"])
+        resource["is_favorite"] = bool(
+            resource["is_favorite"]
+        )
         resources.append(resource)
 
     connection.close()
@@ -487,7 +494,9 @@ def get_resource(resource_id: int):
         )
 
     result = dict(resource)
-    result["is_favorite"] = bool(result["is_favorite"])
+    result["is_favorite"] = bool(
+        result["is_favorite"]
+    )
 
     return result
 
@@ -703,7 +712,9 @@ def search_resources_api(keyword: str):
 
     for row in cursor.fetchall():
         resource = dict(row)
-        resource["is_favorite"] = bool(resource["is_favorite"])
+        resource["is_favorite"] = bool(
+            resource["is_favorite"]
+        )
         resources.append(resource)
 
     connection.close()
