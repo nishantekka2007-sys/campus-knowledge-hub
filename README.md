@@ -53,22 +53,11 @@ Each resource can include a subject, title, resource type, link, and an optional
 | DELETE | `/resources/{resource_id}` | Delete a resource |
 | GET | `/resources/search/{keyword}` | Search resources |
 
-## Project Structure
+## Resource Filtering
+
+The resources endpoint supports optional query parameters.
+
+### Filter by type
 
 ```text
-campus-knowledge-hub/
-│
-├── app/
-│   ├── __init__.py
-│   └── main.py
-│
-├── templates/
-│   └── index.html
-│
-├── tests/
-│   └── test_main.py
-│
-├── docs/
-├── .gitignore
-├── README.md
-└── requirements.txt
+GET /resources?type=Course
