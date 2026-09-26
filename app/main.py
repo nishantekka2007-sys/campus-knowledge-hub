@@ -1594,9 +1594,7 @@ def get_resources(
     if conditions:
         where_clause = (
             " WHERE "
-            + " AND ".join(
-                conditions
-            )
+            + " AND ".join(conditions)
         )
 
     cursor.execute(
@@ -2036,7 +2034,29 @@ def delete_resource_api(
     "/resources/search/{keyword}"
 )
 def search_resources_api(
+    response: Response,
     keyword: str,
+    page: int = Query(
+        default=1,
+        ge=1,
+    ),
+    limit: int = Query(
+        default=10,
+        ge=1,
+        le=100,
+    ),
+    sort_by: Literal[
+        "id",
+        "title",
+    ] = Query(
+        default="id",
+    ),
+    order: Literal[
+        "asc",
+        "desc",
+    ] = Query(
+        default="asc",
+    ),
 ):
     connection = connect_database()
     connection.row_factory = sqlite3.Row
@@ -2046,36 +2066,80 @@ def search_resources_api(
         f"%{keyword}%"
     )
 
-    cursor.execute(
-        """
-        SELECT
-            id,
-            subject,
-            title,
-            resource_type,
-            link,
-            description,
-            is_favorite,
-            created_by,
-            file_name,
-            file_size,
-            file_content_type,
-            uploaded_at
-        FROM resources
-        WHERE subject LIKE ?
-           OR title LIKE ?
-           OR resource_type LIKE ?
-           OR description LIKE ?
-           OR file_name LIKE ?
-        ORDER BY id
-        """,
+    search_conditions = """
         (
-            search_term,
-            search_term,
-            search_term,
-            search_term,
-            search_term,
-        ),
+            subject LIKE ?
+            OR title LIKE ?
+            OR resource_type LIKE ?
+            OR description LIKE ?
+            OR file_name LIKE ?
+        )
+    """
+
+    search_parameters = [
+        search_term,
+        search_term,
+        search_term,
+        search_term,
+        search_term,
+    ]
+
+    cursor.execute(
+        f"""
+        SELECT COUNT(*)
+        FROM resources
+        WHERE {search_conditions}
+        """,
+        search_parameters,
+    )
+
+    total = cursor.fetchone()[0]
+
+    sort_column = {
+        "id": "resources.id",
+        "title": "resources.title",
+    }[sort_by]
+
+    sort_order = (
+        "DESC"
+        if order == "desc"
+        else "ASC"
+    )
+
+    offset = (
+        (page - 1)
+        * limit
+    )
+
+    cursor.execute(
+        f"""
+        SELECT
+            resources.id,
+            resources.subject,
+            resources.title,
+            resources.resource_type,
+            resources.link,
+            resources.description,
+            resources.is_favorite,
+            resources.created_by,
+            resources.file_name,
+            resources.file_size,
+            resources.file_content_type,
+            resources.uploaded_at
+        FROM resources
+        WHERE {search_conditions}
+        ORDER BY
+            {sort_column}
+            {sort_order},
+            resources.id
+            {sort_order}
+        LIMIT ?
+        OFFSET ?
+        """,
+        search_parameters + [
+            limit,
+            offset,
+        ],
     )
 
     resources = []
@@ -2096,6 +2160,19 @@ def search_resources_api(
         )
 
     connection.close()
+
+    pages = (
+        (total + limit - 1) // limit
+        if total > 0
+        else 0
+    )
+
+    response.headers["X-Page"] = str(page)
+    response.headers["X-Limit"] = str(limit)
+    response.headers["X-Total"] = str(total)
+    response.headers["X-Pages"] = str(pages)
+    response.headers["X-Sort-By"] = sort_by
+    response.headers["X-Order"] = order
 
     return resources
 
