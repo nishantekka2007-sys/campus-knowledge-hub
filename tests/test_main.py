@@ -8,8 +8,15 @@ client = TestClient(main.app)
 
 def setup_test_database(tmp_path, monkeypatch):
     database_path = tmp_path / "test.db"
-    monkeypatch.setattr(main, "DATABASE", str(database_path))
+
+    monkeypatch.setattr(
+        main,
+        "DATABASE",
+        str(database_path),
+    )
+
     main.create_table()
+
     return database_path
 
 
@@ -41,6 +48,23 @@ def register_and_login(
     return login_response
 
 
+def make_admin(username):
+    connection = main.connect_database()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        UPDATE users
+        SET role = 'admin'
+        WHERE username = ?
+        """,
+        (username,),
+    )
+
+    connection.commit()
+    connection.close()
+
+
 def test_create_table(tmp_path, monkeypatch):
     setup_test_database(tmp_path, monkeypatch)
 
@@ -51,7 +75,8 @@ def test_create_table(tmp_path, monkeypatch):
         """
         SELECT name
         FROM sqlite_master
-        WHERE type = 'table' AND name = 'resources'
+        WHERE type = 'table'
+          AND name = 'resources'
         """
     )
 
@@ -71,7 +96,12 @@ def test_add_resource(tmp_path, monkeypatch):
     cursor.execute(
         """
         INSERT INTO resources
-        (subject, title, resource_type, link)
+        (
+            subject,
+            title,
+            resource_type,
+            link
+        )
         VALUES (?, ?, ?, ?)
         """,
         (
@@ -84,7 +114,10 @@ def test_add_resource(tmp_path, monkeypatch):
 
     connection.commit()
 
-    cursor.execute("SELECT * FROM resources")
+    cursor.execute(
+        "SELECT * FROM resources"
+    )
+
     resource = cursor.fetchone()
 
     connection.close()
@@ -104,7 +137,12 @@ def test_search_resource(tmp_path, monkeypatch):
     cursor.execute(
         """
         INSERT INTO resources
-        (subject, title, resource_type, link)
+        (
+            subject,
+            title,
+            resource_type,
+            link
+        )
         VALUES (?, ?, ?, ?)
         """,
         (
@@ -151,7 +189,12 @@ def test_update_resource(tmp_path, monkeypatch):
     cursor.execute(
         """
         INSERT INTO resources
-        (subject, title, resource_type, link)
+        (
+            subject,
+            title,
+            resource_type,
+            link
+        )
         VALUES (?, ?, ?, ?)
         """,
         (
@@ -179,7 +222,11 @@ def test_update_resource(tmp_path, monkeypatch):
     connection.commit()
 
     cursor.execute(
-        "SELECT title FROM resources WHERE id = ?",
+        """
+        SELECT title
+        FROM resources
+        WHERE id = ?
+        """,
         (1,),
     )
 
@@ -199,7 +246,12 @@ def test_delete_resource(tmp_path, monkeypatch):
     cursor.execute(
         """
         INSERT INTO resources
-        (subject, title, resource_type, link)
+        (
+            subject,
+            title,
+            resource_type,
+            link
+        )
         VALUES (?, ?, ?, ?)
         """,
         (
@@ -213,14 +265,21 @@ def test_delete_resource(tmp_path, monkeypatch):
     connection.commit()
 
     cursor.execute(
-        "DELETE FROM resources WHERE id = ?",
+        """
+        DELETE FROM resources
+        WHERE id = ?
+        """,
         (1,),
     )
 
     connection.commit()
 
     cursor.execute(
-        "SELECT * FROM resources WHERE id = ?",
+        """
+        SELECT *
+        FROM resources
+        WHERE id = ?
+        """,
         (1,),
     )
 
@@ -245,8 +304,14 @@ def test_health_check():
     assert response.json()["status"] == "ok"
 
 
-def test_get_resources_api(tmp_path, monkeypatch):
-    setup_test_database(tmp_path, monkeypatch)
+def test_get_resources_api(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
 
     response = client.get("/resources")
 
@@ -254,8 +319,14 @@ def test_get_resources_api(tmp_path, monkeypatch):
     assert response.json() == []
 
 
-def test_create_resource_api(tmp_path, monkeypatch):
-    setup_test_database(tmp_path, monkeypatch)
+def test_create_resource_api(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
 
     register_and_login(client)
 
@@ -266,12 +337,17 @@ def test_create_resource_api(tmp_path, monkeypatch):
             "title": "Java Basics",
             "resource_type": "Notes",
             "link": "https://example.com/java",
-            "description": "Introduction to Java programming.",
+            "description": (
+                "Introduction to Java programming."
+            ),
         },
     )
 
     assert response.status_code == 201
-    assert response.json()["message"] == "Resource created successfully"
+    assert (
+        response.json()["message"]
+        == "Resource created successfully"
+    )
 
     resource_id = response.json()["id"]
 
@@ -280,11 +356,20 @@ def test_create_resource_api(tmp_path, monkeypatch):
     )
 
     assert get_response.status_code == 200
-    assert get_response.json()["title"] == "Java Basics"
+    assert (
+        get_response.json()["title"]
+        == "Java Basics"
+    )
 
 
-def test_update_resource_api(tmp_path, monkeypatch):
-    setup_test_database(tmp_path, monkeypatch)
+def test_update_resource_api(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
 
     register_and_login(client)
 
@@ -295,7 +380,9 @@ def test_update_resource_api(tmp_path, monkeypatch):
             "title": "Python Basics",
             "resource_type": "Notes",
             "link": "https://example.com",
-            "description": "Basic Python concepts.",
+            "description": (
+                "Basic Python concepts."
+            ),
         },
     )
 
@@ -309,8 +396,12 @@ def test_update_resource_api(tmp_path, monkeypatch):
             "subject": "Python",
             "title": "Python Fundamentals",
             "resource_type": "Course",
-            "link": "https://example.com/python",
-            "description": "Updated Python course.",
+            "link": (
+                "https://example.com/python"
+            ),
+            "description": (
+                "Updated Python course."
+            ),
         },
     )
 
@@ -321,15 +412,24 @@ def test_update_resource_api(tmp_path, monkeypatch):
     )
 
     assert get_response.status_code == 200
-    assert get_response.json()["title"] == "Python Fundamentals"
-    assert get_response.json()["resource_type"] == "Course"
+    assert (
+        get_response.json()["title"]
+        == "Python Fundamentals"
+    )
+    assert (
+        get_response.json()["resource_type"]
+        == "Course"
+    )
 
 
 def test_update_resource_api_rejects_invalid_url(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(tmp_path, monkeypatch)
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
 
     register_and_login(client)
 
@@ -340,7 +440,9 @@ def test_update_resource_api_rejects_invalid_url(
             "title": "Python Basics",
             "resource_type": "Notes",
             "link": "https://example.com",
-            "description": "Basic Python concepts.",
+            "description": (
+                "Basic Python concepts."
+            ),
         },
     )
 
@@ -355,15 +457,23 @@ def test_update_resource_api_rejects_invalid_url(
             "title": "Updated Python",
             "resource_type": "Course",
             "link": "not-a-valid-url",
-            "description": "Updated description.",
+            "description": (
+                "Updated description."
+            ),
         },
     )
 
     assert response.status_code == 422
 
 
-def test_toggle_favorite_api(tmp_path, monkeypatch):
-    setup_test_database(tmp_path, monkeypatch)
+def test_toggle_favorite_api(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
 
     register_and_login(client)
 
@@ -374,7 +484,9 @@ def test_toggle_favorite_api(tmp_path, monkeypatch):
             "title": "Java Basics",
             "resource_type": "Course",
             "link": "https://example.com/java",
-            "description": "Java programming notes.",
+            "description": (
+                "Java programming notes."
+            ),
         },
     )
 
@@ -393,8 +505,14 @@ def test_toggle_favorite_api(tmp_path, monkeypatch):
     assert body["is_favorite"] is True
 
 
-def test_get_favorite_resources_api(tmp_path, monkeypatch):
-    setup_test_database(tmp_path, monkeypatch)
+def test_get_favorite_resources_api(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
 
     register_and_login(client)
 
@@ -404,8 +522,12 @@ def test_get_favorite_resources_api(tmp_path, monkeypatch):
             "subject": "Java",
             "title": "Java Basics",
             "resource_type": "Course",
-            "link": "https://example.com/java",
-            "description": "Java programming.",
+            "link": (
+                "https://example.com/java"
+            ),
+            "description": (
+                "Java programming."
+            ),
         },
     )
 
@@ -415,8 +537,12 @@ def test_get_favorite_resources_api(tmp_path, monkeypatch):
             "subject": "Python",
             "title": "Python Basics",
             "resource_type": "Notes",
-            "link": "https://example.com/python",
-            "description": "Python programming.",
+            "link": (
+                "https://example.com/python"
+            ),
+            "description": (
+                "Python programming."
+            ),
         },
     )
 
@@ -440,12 +566,23 @@ def test_get_favorite_resources_api(tmp_path, monkeypatch):
     results = response.json()
 
     assert len(results) == 1
-    assert results[0]["title"] == "Java Basics"
-    assert results[0]["is_favorite"] is True
+    assert (
+        results[0]["title"]
+        == "Java Basics"
+    )
+    assert (
+        results[0]["is_favorite"] is True
+    )
 
 
-def test_get_resources_by_type_api(tmp_path, monkeypatch):
-    setup_test_database(tmp_path, monkeypatch)
+def test_get_resources_by_type_api(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
 
     register_and_login(client)
 
@@ -455,7 +592,9 @@ def test_get_resources_by_type_api(tmp_path, monkeypatch):
             "subject": "FastAPI",
             "title": "FastAPI Basics",
             "resource_type": "Course",
-            "link": "https://example.com/fastapi",
+            "link": (
+                "https://example.com/fastapi"
+            ),
             "description": "Learn FastAPI.",
         },
     )
@@ -466,7 +605,9 @@ def test_get_resources_by_type_api(tmp_path, monkeypatch):
             "subject": "Python",
             "title": "Python Fundamentals",
             "resource_type": "Notes",
-            "link": "https://example.com/python",
+            "link": (
+                "https://example.com/python"
+            ),
             "description": "Learn Python.",
         },
     )
@@ -483,14 +624,34 @@ def test_get_resources_by_type_api(tmp_path, monkeypatch):
     results = response.json()
 
     assert len(results) == 1
-    assert results[0]["title"] == "FastAPI Basics"
-    assert results[0]["resource_type"] == "Course"
+    assert (
+        results[0]["title"]
+        == "FastAPI Basics"
+    )
+    assert (
+        results[0]["resource_type"]
+        == "Course"
+    )
 
 
-def test_delete_resource_api(tmp_path, monkeypatch):
-    setup_test_database(tmp_path, monkeypatch)
+def test_delete_resource_api(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
 
-    register_and_login(client)
+    username = "admin_delete_test"
+
+    register_and_login(
+        client,
+        username=username,
+        password="password123",
+    )
+
+    make_admin(username)
 
     create_response = client.post(
         "/resources",
@@ -498,8 +659,12 @@ def test_delete_resource_api(tmp_path, monkeypatch):
             "subject": "Java",
             "title": "Java Basics",
             "resource_type": "Notes",
-            "link": "https://example.com/java",
-            "description": "Java programming notes.",
+            "link": (
+                "https://example.com/java"
+            ),
+            "description": (
+                "Java programming notes."
+            ),
         },
     )
 
@@ -520,8 +685,14 @@ def test_delete_resource_api(tmp_path, monkeypatch):
     assert get_response.status_code == 404
 
 
-def test_search_resource_api(tmp_path, monkeypatch):
-    setup_test_database(tmp_path, monkeypatch)
+def test_search_resource_api(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
 
     register_and_login(client)
 
@@ -531,8 +702,12 @@ def test_search_resource_api(tmp_path, monkeypatch):
             "subject": "Python",
             "title": "FastAPI Basics",
             "resource_type": "Course",
-            "link": "https://example.com/fastapi",
-            "description": "Learn FastAPI fundamentals.",
+            "link": (
+                "https://example.com/fastapi"
+            ),
+            "description": (
+                "Learn FastAPI fundamentals."
+            ),
         },
     )
 
@@ -542,8 +717,12 @@ def test_search_resource_api(tmp_path, monkeypatch):
             "subject": "Java",
             "title": "Java Basics",
             "resource_type": "Notes",
-            "link": "https://example.com/java",
-            "description": "Java programming notes.",
+            "link": (
+                "https://example.com/java"
+            ),
+            "description": (
+                "Java programming notes."
+            ),
         },
     )
 
@@ -559,14 +738,20 @@ def test_search_resource_api(tmp_path, monkeypatch):
     results = response.json()
 
     assert len(results) == 1
-    assert results[0]["title"] == "FastAPI Basics"
+    assert (
+        results[0]["title"]
+        == "FastAPI Basics"
+    )
 
 
 def test_search_resource_api_by_description(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(tmp_path, monkeypatch)
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
 
     register_and_login(client)
 
@@ -576,9 +761,12 @@ def test_search_resource_api_by_description(
             "subject": "Java",
             "title": "Java Basics",
             "resource_type": "Course",
-            "link": "https://example.com/java",
+            "link": (
+                "https://example.com/java"
+            ),
             "description": (
-                "Introduction to object-oriented programming."
+                "Introduction to "
+                "object-oriented programming."
             ),
         },
     )
@@ -589,8 +777,12 @@ def test_search_resource_api_by_description(
             "subject": "Python",
             "title": "Python Basics",
             "resource_type": "Notes",
-            "link": "https://example.com/python",
-            "description": "Python syntax and fundamentals.",
+            "link": (
+                "https://example.com/python"
+            ),
+            "description": (
+                "Python syntax and fundamentals."
+            ),
         },
     )
 
@@ -606,25 +798,40 @@ def test_search_resource_api_by_description(
     results = response.json()
 
     assert len(results) == 1
-    assert results[0]["title"] == "Java Basics"
+    assert (
+        results[0]["title"]
+        == "Java Basics"
+    )
 
 
-def test_not_found_resource_api(tmp_path, monkeypatch):
-    setup_test_database(tmp_path, monkeypatch)
+def test_not_found_resource_api(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
 
     response = client.get(
         "/resources/9999"
     )
 
     assert response.status_code == 404
-    assert response.json()["detail"] == "Resource not found"
+    assert (
+        response.json()["detail"]
+        == "Resource not found"
+    )
 
 
 def test_create_resource_api_rejects_empty_fields(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(tmp_path, monkeypatch)
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
 
     register_and_login(client)
 
@@ -634,7 +841,9 @@ def test_create_resource_api_rejects_empty_fields(
             "subject": "",
             "title": "Java Basics",
             "resource_type": "Notes",
-            "link": "https://example.com/java",
+            "link": (
+                "https://example.com/java"
+            ),
         },
     )
 
@@ -645,7 +854,10 @@ def test_create_resource_api_rejects_whitespace_fields(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(tmp_path, monkeypatch)
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
 
     register_and_login(client)
 
@@ -655,7 +867,9 @@ def test_create_resource_api_rejects_whitespace_fields(
             "subject": "   ",
             "title": "Java Basics",
             "resource_type": "Notes",
-            "link": "https://example.com/java",
+            "link": (
+                "https://example.com/java"
+            ),
         },
     )
 
@@ -666,7 +880,10 @@ def test_create_resource_api_rejects_invalid_url(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(tmp_path, monkeypatch)
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
 
     register_and_login(client)
 
@@ -687,7 +904,10 @@ def test_create_resource_api_accepts_https_url(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(tmp_path, monkeypatch)
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
 
     register_and_login(client)
 
@@ -697,15 +917,23 @@ def test_create_resource_api_accepts_https_url(
             "subject": "FastAPI",
             "title": "FastAPI Documentation",
             "resource_type": "Documentation",
-            "link": "https://fastapi.tiangolo.com/",
+            "link": (
+                "https://fastapi.tiangolo.com/"
+            ),
         },
     )
 
     assert response.status_code == 201
 
 
-def test_register_api(tmp_path, monkeypatch):
-    setup_test_database(tmp_path, monkeypatch)
+def test_register_api(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
 
     response = client.post(
         "/register",
@@ -726,7 +954,10 @@ def test_register_duplicate_username(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(tmp_path, monkeypatch)
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
 
     first_response = client.post(
         "/register",
@@ -736,7 +967,10 @@ def test_register_duplicate_username(
         },
     )
 
-    assert first_response.status_code in (200, 201)
+    assert first_response.status_code in (
+        200,
+        201,
+    )
 
     second_response = client.post(
         "/register",
@@ -746,11 +980,20 @@ def test_register_duplicate_username(
         },
     )
 
-    assert second_response.status_code in (400, 409)
+    assert second_response.status_code in (
+        400,
+        409,
+    )
 
 
-def test_login_api(tmp_path, monkeypatch):
-    setup_test_database(tmp_path, monkeypatch)
+def test_login_api(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
 
     register_response = client.post(
         "/register",
@@ -760,7 +1003,10 @@ def test_login_api(tmp_path, monkeypatch):
         },
     )
 
-    assert register_response.status_code in (200, 201)
+    assert register_response.status_code in (
+        200,
+        201,
+    )
 
     login_response = client.post(
         "/login",
@@ -781,7 +1027,10 @@ def test_login_rejects_invalid_password(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(tmp_path, monkeypatch)
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
 
     register_response = client.post(
         "/register",
@@ -791,7 +1040,10 @@ def test_login_rejects_invalid_password(
         },
     )
 
-    assert register_response.status_code in (200, 201)
+    assert register_response.status_code in (
+        200,
+        201,
+    )
 
     login_response = client.post(
         "/login",
@@ -808,11 +1060,18 @@ def test_me_requires_authentication(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(tmp_path, monkeypatch)
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
 
-    unauthenticated_client = TestClient(main.app)
+    unauthenticated_client = TestClient(
+        main.app
+    )
 
-    response = unauthenticated_client.get("/me")
+    response = unauthenticated_client.get(
+        "/me"
+    )
 
     assert response.status_code == 401
 
@@ -821,9 +1080,14 @@ def test_me_returns_current_user(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(tmp_path, monkeypatch)
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
 
-    authenticated_client = TestClient(main.app)
+    authenticated_client = TestClient(
+        main.app
+    )
 
     register_and_login(
         authenticated_client,
@@ -831,7 +1095,9 @@ def test_me_returns_current_user(
         password="password123",
     )
 
-    response = authenticated_client.get("/me")
+    response = authenticated_client.get(
+        "/me"
+    )
 
     assert response.status_code == 200
 
@@ -841,10 +1107,18 @@ def test_me_returns_current_user(
     assert body["role"] == "student"
 
 
-def test_logout_api(tmp_path, monkeypatch):
-    setup_test_database(tmp_path, monkeypatch)
+def test_logout_api(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
 
-    authenticated_client = TestClient(main.app)
+    authenticated_client = TestClient(
+        main.app
+    )
 
     register_and_login(
         authenticated_client,
@@ -852,15 +1126,21 @@ def test_logout_api(tmp_path, monkeypatch):
         password="password123",
     )
 
-    me_response = authenticated_client.get("/me")
+    me_response = authenticated_client.get(
+        "/me"
+    )
 
     assert me_response.status_code == 200
 
-    logout_response = authenticated_client.post("/logout")
+    logout_response = authenticated_client.post(
+        "/logout"
+    )
 
     assert logout_response.status_code == 200
 
-    me_after_logout = authenticated_client.get("/me")
+    me_after_logout = authenticated_client.get(
+        "/me"
+    )
 
     assert me_after_logout.status_code == 401
 
@@ -869,9 +1149,14 @@ def test_protected_create_requires_login(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(tmp_path, monkeypatch)
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
 
-    unauthenticated_client = TestClient(main.app)
+    unauthenticated_client = TestClient(
+        main.app
+    )
 
     response = unauthenticated_client.post(
         "/resources",
@@ -879,7 +1164,9 @@ def test_protected_create_requires_login(
             "subject": "Python",
             "title": "Python Basics",
             "resource_type": "Course",
-            "link": "https://example.com/python",
+            "link": (
+                "https://example.com/python"
+            ),
         },
     )
 

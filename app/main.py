@@ -1,9 +1,11 @@
 import hashlib
 import hmac
+import os
 import re
 import secrets
 import sqlite3
 from datetime import datetime, timedelta, timezone
+from typing import Literal
 from urllib.parse import urlparse
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
@@ -17,16 +19,22 @@ DATABASE = "campus.db"
 SESSION_DAYS = 7
 PASSWORD_ITERATIONS = 310_000
 
+VALID_ROLES = {"student", "admin"}
+
 
 app = FastAPI(
     title="Campus Knowledge Hub",
     description="API for managing college learning resources",
-    version="1.0.0",
+    version="1.1.0",
 )
 
 
 templates = Jinja2Templates(directory="templates")
 
+
+# ---------------------------------------------------------
+# Pydantic models
+# ---------------------------------------------------------
 
 class RegisterRequest(BaseModel):
     username: str = Field(min_length=3, max_length=30)
@@ -57,7 +65,12 @@ class Resource(BaseModel):
     link: str = Field(min_length=1)
     description: str = Field(default="", max_length=500)
 
-    @field_validator("subject", "title", "resource_type", "link")
+    @field_validator(
+        "subject",
+        "title",
+        "resource_type",
+        "link",
+    )
     @classmethod
     def validate_text(cls, value: str) -> str:
         value = value.strip()
@@ -77,15 +90,185 @@ class Resource(BaseModel):
     def validate_link(cls, value: str) -> str:
         parsed_url = urlparse(value)
 
-        if parsed_url.scheme not in ("http", "https") or not parsed_url.netloc:
-            raise ValueError("Link must be a valid HTTP or HTTPS URL")
+        if (
+            parsed_url.scheme not in ("http", "https")
+            or not parsed_url.netloc
+        ):
+            raise ValueError(
+                "Link must be a valid HTTP or HTTPS URL"
+            )
 
         return value
 
 
-def connect_database():
-    return sqlite3.connect(DATABASE)
+class RoleUpdateRequest(BaseModel):
+    role: Literal["student", "admin"]
 
+
+# ---------------------------------------------------------
+# Database
+# ---------------------------------------------------------
+
+def connect_database():
+    connection = sqlite3.connect(DATABASE)
+    connection.execute("PRAGMA foreign_keys = ON")
+    return connection
+
+
+def create_table():
+    connection = connect_database()
+    cursor = connection.cursor()
+
+    # Resources table
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS resources (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            subject TEXT NOT NULL,
+            title TEXT NOT NULL,
+            resource_type TEXT NOT NULL,
+            link TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            is_favorite INTEGER NOT NULL DEFAULT 0,
+            created_by INTEGER
+        )
+        """
+    )
+
+    # Migrate older resource databases.
+    cursor.execute("PRAGMA table_info(resources)")
+
+    resource_columns = [
+        column[1]
+        for column in cursor.fetchall()
+    ]
+
+    if "description" not in resource_columns:
+        cursor.execute(
+            """
+            ALTER TABLE resources
+            ADD COLUMN description TEXT NOT NULL DEFAULT ''
+            """
+        )
+
+    if "is_favorite" not in resource_columns:
+        cursor.execute(
+            """
+            ALTER TABLE resources
+            ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0
+            """
+        )
+
+    if "created_by" not in resource_columns:
+        cursor.execute(
+            """
+            ALTER TABLE resources
+            ADD COLUMN created_by INTEGER
+            """
+        )
+
+    # Users table
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'student',
+            created_at TEXT NOT NULL
+        )
+        """
+    )
+
+    # Sessions table
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS sessions (
+            token TEXT PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            expires_at TEXT NOT NULL
+        )
+        """
+    )
+
+    connection.commit()
+
+    bootstrap_admin(connection)
+
+    connection.close()
+
+
+def bootstrap_admin(connection):
+    """
+    Optional admin bootstrap.
+
+    Set these before starting the application:
+
+        export ADMIN_USERNAME=admin
+        export ADMIN_PASSWORD=your-password
+
+    If the user does not exist, an admin account is created.
+    If the user already exists, it is promoted to admin.
+    """
+
+    admin_username = os.getenv("ADMIN_USERNAME", "").strip()
+    admin_password = os.getenv("ADMIN_PASSWORD", "")
+
+    if not admin_username or not admin_password:
+        return
+
+    if not re.fullmatch(
+        r"[A-Za-z0-9_]{3,30}",
+        admin_username,
+    ):
+        return
+
+    if len(admin_password) < 8:
+        return
+
+    cursor = connection.cursor()
+
+    cursor.execute(
+        "SELECT id FROM users WHERE username = ?",
+        (admin_username,),
+    )
+
+    existing_user = cursor.fetchone()
+
+    if existing_user is None:
+        cursor.execute(
+            """
+            INSERT INTO users (
+                username,
+                password_hash,
+                role,
+                created_at
+            )
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                admin_username,
+                hash_password(admin_password),
+                "admin",
+                datetime.now(timezone.utc).isoformat(),
+            ),
+        )
+    else:
+        cursor.execute(
+            """
+            UPDATE users
+            SET role = 'admin'
+            WHERE username = ?
+            """,
+            (admin_username,),
+        )
+
+    connection.commit()
+
+
+# ---------------------------------------------------------
+# Password security
+# ---------------------------------------------------------
 
 def hash_password(password: str) -> str:
     salt = secrets.token_hex(16)
@@ -103,9 +286,17 @@ def hash_password(password: str) -> str:
     )
 
 
-def verify_password(password: str, stored_hash: str) -> bool:
+def verify_password(
+    password: str,
+    stored_hash: str,
+) -> bool:
     try:
-        algorithm, iterations, salt, expected_hash = stored_hash.split("$")
+        (
+            algorithm,
+            iterations,
+            salt,
+            expected_hash,
+        ) = stored_hash.split("$")
 
         if algorithm != "pbkdf2_sha256":
             return False
@@ -125,6 +316,10 @@ def verify_password(password: str, stored_hash: str) -> bool:
     except (ValueError, TypeError):
         return False
 
+
+# ---------------------------------------------------------
+# Sessions / authentication
+# ---------------------------------------------------------
 
 def create_session(user_id: int) -> str:
     token = secrets.token_urlsafe(32)
@@ -174,8 +369,12 @@ def get_current_user(request: Request):
 
     now = datetime.now(timezone.utc).isoformat()
 
+    # Remove expired sessions.
     cursor.execute(
-        "DELETE FROM sessions WHERE expires_at <= ?",
+        """
+        DELETE FROM sessions
+        WHERE expires_at <= ?
+        """,
         (now,),
     )
 
@@ -186,7 +385,8 @@ def get_current_user(request: Request):
         SELECT
             users.id,
             users.username,
-            users.role
+            users.role,
+            users.created_at
         FROM sessions
         JOIN users
             ON users.id = sessions.user_id
@@ -209,10 +409,31 @@ def get_current_user(request: Request):
             detail="Invalid or expired session",
         )
 
+    if user["role"] not in VALID_ROLES:
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid user role",
+        )
+
     return dict(user)
 
 
-def set_session_cookie(response, token: str):
+def get_admin_user(
+    current_user=Depends(get_current_user),
+):
+    if current_user["role"] != "admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Administrator access required",
+        )
+
+    return current_user
+
+
+def set_session_cookie(
+    response,
+    token: str,
+):
     response.set_cookie(
         key="session_token",
         value=token,
@@ -223,71 +444,9 @@ def set_session_cookie(response, token: str):
     )
 
 
-def create_table():
-    connection = connect_database()
-    cursor = connection.cursor()
-
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS resources (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            subject TEXT NOT NULL,
-            title TEXT NOT NULL,
-            resource_type TEXT NOT NULL,
-            link TEXT NOT NULL,
-            description TEXT NOT NULL DEFAULT '',
-            is_favorite INTEGER NOT NULL DEFAULT 0
-        )
-        """
-    )
-
-    cursor.execute("PRAGMA table_info(resources)")
-    resource_columns = [
-        column[1]
-        for column in cursor.fetchall()
-    ]
-
-    if "description" not in resource_columns:
-        cursor.execute(
-            """
-            ALTER TABLE resources
-            ADD COLUMN description TEXT NOT NULL DEFAULT ''
-            """
-        )
-
-    if "is_favorite" not in resource_columns:
-        cursor.execute(
-            """
-            ALTER TABLE resources
-            ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0
-            """
-        )
-
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL UNIQUE,
-            password_hash TEXT NOT NULL,
-            role TEXT NOT NULL DEFAULT 'student',
-            created_at TEXT NOT NULL
-        )
-        """
-    )
-
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS sessions (
-            token TEXT PRIMARY KEY,
-            user_id INTEGER NOT NULL,
-            expires_at TEXT NOT NULL
-        )
-        """
-    )
-
-    connection.commit()
-    connection.close()
-
+# ---------------------------------------------------------
+# CLI helpers
+# ---------------------------------------------------------
 
 def get_required_input(prompt):
     while True:
@@ -296,7 +455,9 @@ def get_required_input(prompt):
         if value:
             return value
 
-        print("This field cannot be empty. Please try again.")
+        print(
+            "This field cannot be empty. Please try again."
+        )
 
 
 def get_optional_input(prompt):
@@ -354,7 +515,8 @@ def view_resources():
             resource_type,
             link,
             description,
-            is_favorite
+            is_favorite,
+            created_by
         FROM resources
         ORDER BY id
         """
@@ -379,6 +541,7 @@ def view_resources():
             link,
             description,
             is_favorite,
+            created_by,
         ) = resource
 
         print(f"\nResource #{resource_id}")
@@ -387,11 +550,13 @@ def view_resources():
         print(f"Type: {resource_type}")
         print(f"Link: {link}")
         print(
-            f"Description: {description or 'No description provided.'}"
+            "Description: "
+            f"{description or 'No description provided.'}"
         )
         print(
             f"Favorite: {'Yes' if is_favorite else 'No'}"
         )
+        print(f"Created by user ID: {created_by}")
 
 
 def search_resources():
@@ -413,7 +578,8 @@ def search_resources():
             resource_type,
             link,
             description,
-            is_favorite
+            is_favorite,
+            created_by
         FROM resources
         WHERE subject LIKE ?
            OR title LIKE ?
@@ -437,7 +603,9 @@ def search_resources():
         print("No matching resources found.")
         return
 
-    print(f"\nFound {len(resources)} resource(s):")
+    print(
+        f"\nFound {len(resources)} resource(s):"
+    )
 
     for resource in resources:
         (
@@ -448,6 +616,7 @@ def search_resources():
             link,
             description,
             is_favorite,
+            created_by,
         ) = resource
 
         print(f"\nResource #{resource_id}")
@@ -456,17 +625,21 @@ def search_resources():
         print(f"Type: {resource_type}")
         print(f"Link: {link}")
         print(
-            f"Description: {description or 'No description provided.'}"
+            "Description: "
+            f"{description or 'No description provided.'}"
         )
         print(
             f"Favorite: {'Yes' if is_favorite else 'No'}"
         )
+        print(f"Created by user ID: {created_by}")
 
 
 def update_resource():
     print("\n--- Update Resource ---")
 
-    resource_id = get_required_input("Enter resource ID: ")
+    resource_id = get_required_input(
+        "Enter resource ID: "
+    )
 
     connection = connect_database()
     cursor = connection.cursor()
@@ -499,15 +672,24 @@ def update_resource():
     print(f"Type: {resource[3]}")
     print(f"Link: {resource[4]}")
     print(
-        f"Description: {resource[5] or 'No description provided.'}"
+        "Description: "
+        f"{resource[5] or 'No description provided.'}"
     )
 
     print("\nEnter the new information.")
 
-    new_subject = get_required_input("New subject: ")
-    new_title = get_required_input("New title: ")
-    new_type = get_required_input("New type: ")
-    new_link = get_required_input("New link: ")
+    new_subject = get_required_input(
+        "New subject: "
+    )
+    new_title = get_required_input(
+        "New title: "
+    )
+    new_type = get_required_input(
+        "New type: "
+    )
+    new_link = get_required_input(
+        "New link: "
+    )
     new_description = get_optional_input(
         "New description: "
     )
@@ -541,7 +723,9 @@ def update_resource():
 def delete_resource():
     print("\n--- Delete Resource ---")
 
-    resource_id = get_required_input("Enter resource ID: ")
+    resource_id = get_required_input(
+        "Enter resource ID: "
+    )
 
     connection = connect_database()
     cursor = connection.cursor()
@@ -585,10 +769,21 @@ def delete_resource():
     print("Resource deleted successfully!")
 
 
+# ---------------------------------------------------------
+# Application startup
+# ---------------------------------------------------------
+
 create_table()
 
 
-@app.get("/", response_class=HTMLResponse)
+# ---------------------------------------------------------
+# Basic endpoints
+# ---------------------------------------------------------
+
+@app.get(
+    "/",
+    response_class=HTMLResponse,
+)
 def home(request: Request):
     return templates.TemplateResponse(
         request=request,
@@ -604,13 +799,26 @@ def health_check():
     }
 
 
-@app.post("/register", status_code=201)
-def register_user(data: RegisterRequest):
+# ---------------------------------------------------------
+# Authentication
+# ---------------------------------------------------------
+
+@app.post(
+    "/register",
+    status_code=201,
+)
+def register_user(
+    data: RegisterRequest,
+):
     connection = connect_database()
     cursor = connection.cursor()
 
     cursor.execute(
-        "SELECT id FROM users WHERE username = ?",
+        """
+        SELECT id
+        FROM users
+        WHERE username = ?
+        """,
         (data.username,),
     )
 
@@ -624,7 +832,9 @@ def register_user(data: RegisterRequest):
             detail="Username already exists",
         )
 
-    created_at = datetime.now(timezone.utc).isoformat()
+    created_at = (
+        datetime.now(timezone.utc).isoformat()
+    )
 
     cursor.execute(
         """
@@ -682,7 +892,13 @@ def login_user(
 
     connection.close()
 
-    if user is None or not verify_password(
+    if user is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid username or password",
+        )
+
+    if not verify_password(
         data.password,
         user["password_hash"],
     ):
@@ -701,7 +917,10 @@ def login_user(
         }
     )
 
-    set_session_cookie(response, token)
+    set_session_cookie(
+        response,
+        token,
+    )
 
     return response
 
@@ -715,7 +934,10 @@ def logout_user(request: Request):
         cursor = connection.cursor()
 
         cursor.execute(
-            "DELETE FROM sessions WHERE token = ?",
+            """
+            DELETE FROM sessions
+            WHERE token = ?
+            """,
             (token,),
         )
 
@@ -728,19 +950,143 @@ def logout_user(request: Request):
         }
     )
 
-    response.delete_cookie("session_token")
+    response.delete_cookie(
+        "session_token"
+    )
 
     return response
 
 
 @app.get("/me")
-def get_me(current_user=Depends(get_current_user)):
+def get_me(
+    current_user=Depends(get_current_user),
+):
     return {
         "id": current_user["id"],
         "username": current_user["username"],
         "role": current_user["role"],
+        "created_at": current_user["created_at"],
     }
 
+
+# ---------------------------------------------------------
+# Admin / user management
+# ---------------------------------------------------------
+
+@app.get("/users")
+def get_users(
+    current_user=Depends(get_admin_user),
+):
+    connection = connect_database()
+    connection.row_factory = sqlite3.Row
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        SELECT
+            id,
+            username,
+            role,
+            created_at
+        FROM users
+        ORDER BY id
+        """
+    )
+
+    users = [
+        dict(row)
+        for row in cursor.fetchall()
+    ]
+
+    connection.close()
+
+    return users
+
+
+@app.patch("/users/{user_id}/role")
+def update_user_role(
+    user_id: int,
+    data: RoleUpdateRequest,
+    current_user=Depends(get_admin_user),
+):
+    if data.role not in VALID_ROLES:
+        raise HTTPException(
+            status_code=422,
+            detail="Invalid role",
+        )
+
+    if user_id == current_user["id"]:
+        raise HTTPException(
+            status_code=400,
+            detail="You cannot change your own role",
+        )
+
+    connection = connect_database()
+    connection.row_factory = sqlite3.Row
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        SELECT
+            id,
+            username,
+            role
+        FROM users
+        WHERE id = ?
+        """,
+        (user_id,),
+    )
+
+    user = cursor.fetchone()
+
+    if user is None:
+        connection.close()
+
+        raise HTTPException(
+            status_code=404,
+            detail="User not found",
+        )
+
+    cursor.execute(
+        """
+        UPDATE users
+        SET role = ?
+        WHERE id = ?
+        """,
+        (
+            data.role,
+            user_id,
+        ),
+    )
+
+    connection.commit()
+
+    cursor.execute(
+        """
+        SELECT
+            id,
+            username,
+            role,
+            created_at
+        FROM users
+        WHERE id = ?
+        """,
+        (user_id,),
+    )
+
+    updated_user = cursor.fetchone()
+
+    connection.close()
+
+    return {
+        "message": "User role updated successfully",
+        "user": dict(updated_user),
+    }
+
+
+# ---------------------------------------------------------
+# Resources
+# ---------------------------------------------------------
 
 @app.get("/resources")
 def get_resources(
@@ -756,13 +1102,14 @@ def get_resources(
 
     query = """
         SELECT
-            id,
-            subject,
-            title,
-            resource_type,
-            link,
-            description,
-            is_favorite
+            resources.id,
+            resources.subject,
+            resources.title,
+            resources.resource_type,
+            resources.link,
+            resources.description,
+            resources.is_favorite,
+            resources.created_by
         FROM resources
     """
 
@@ -770,16 +1117,29 @@ def get_resources(
     parameters = []
 
     if favorite:
-        conditions.append("is_favorite = 1")
+        conditions.append(
+            "resources.is_favorite = 1"
+        )
 
     if resource_type:
-        conditions.append("LOWER(resource_type) = LOWER(?)")
-        parameters.append(resource_type.strip())
+        conditions.append(
+            """
+            LOWER(resources.resource_type)
+            = LOWER(?)
+            """
+        )
+
+        parameters.append(
+            resource_type.strip()
+        )
 
     if conditions:
-        query += " WHERE " + " AND ".join(conditions)
+        query += (
+            " WHERE "
+            + " AND ".join(conditions)
+        )
 
-    query += " ORDER BY id"
+    query += " ORDER BY resources.id"
 
     cursor.execute(
         query,
@@ -803,7 +1163,9 @@ def get_resources(
 
 
 @app.get("/resources/{resource_id}")
-def get_resource(resource_id: int):
+def get_resource(
+    resource_id: int,
+):
     connection = connect_database()
     connection.row_factory = sqlite3.Row
     cursor = connection.cursor()
@@ -817,7 +1179,8 @@ def get_resource(resource_id: int):
             resource_type,
             link,
             description,
-            is_favorite
+            is_favorite,
+            created_by
         FROM resources
         WHERE id = ?
         """,
@@ -843,7 +1206,10 @@ def get_resource(resource_id: int):
     return result
 
 
-@app.post("/resources", status_code=201)
+@app.post(
+    "/resources",
+    status_code=201,
+)
 def create_resource(
     resource: Resource,
     current_user=Depends(get_current_user),
@@ -858,9 +1224,10 @@ def create_resource(
             title,
             resource_type,
             link,
-            description
+            description,
+            created_by
         )
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?)
         """,
         (
             resource.subject,
@@ -868,6 +1235,7 @@ def create_resource(
             resource.resource_type,
             resource.link,
             resource.description,
+            current_user["id"],
         ),
     )
 
@@ -879,6 +1247,7 @@ def create_resource(
     return {
         "message": "Resource created successfully",
         "id": resource_id,
+        "created_by": current_user["id"],
     }
 
 
@@ -889,10 +1258,17 @@ def update_resource_api(
     current_user=Depends(get_current_user),
 ):
     connection = connect_database()
+    connection.row_factory = sqlite3.Row
     cursor = connection.cursor()
 
     cursor.execute(
-        "SELECT id FROM resources WHERE id = ?",
+        """
+        SELECT
+            id,
+            created_by
+        FROM resources
+        WHERE id = ?
+        """,
         (resource_id,),
     )
 
@@ -904,6 +1280,22 @@ def update_resource_api(
         raise HTTPException(
             status_code=404,
             detail="Resource not found",
+        )
+
+    # Students may edit only resources they created.
+    if (
+        current_user["role"] != "admin"
+        and existing_resource["created_by"]
+        != current_user["id"]
+    ):
+        connection.close()
+
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "You can only edit resources "
+                "you created"
+            ),
         )
 
     cursor.execute(
@@ -935,7 +1327,9 @@ def update_resource_api(
     }
 
 
-@app.patch("/resources/{resource_id}/favorite")
+@app.patch(
+    "/resources/{resource_id}/favorite"
+)
 def toggle_favorite(
     resource_id: int,
     current_user=Depends(get_current_user),
@@ -946,7 +1340,9 @@ def toggle_favorite(
 
     cursor.execute(
         """
-        SELECT id, is_favorite
+        SELECT
+            id,
+            is_favorite
         FROM resources
         WHERE id = ?
         """,
@@ -994,13 +1390,17 @@ def toggle_favorite(
 @app.delete("/resources/{resource_id}")
 def delete_resource_api(
     resource_id: int,
-    current_user=Depends(get_current_user),
+    current_user=Depends(get_admin_user),
 ):
     connection = connect_database()
     cursor = connection.cursor()
 
     cursor.execute(
-        "SELECT id FROM resources WHERE id = ?",
+        """
+        SELECT id
+        FROM resources
+        WHERE id = ?
+        """,
         (resource_id,),
     )
 
@@ -1031,8 +1431,12 @@ def delete_resource_api(
     }
 
 
-@app.get("/resources/search/{keyword}")
-def search_resources_api(keyword: str):
+@app.get(
+    "/resources/search/{keyword}"
+)
+def search_resources_api(
+    keyword: str,
+):
     connection = connect_database()
     connection.row_factory = sqlite3.Row
     cursor = connection.cursor()
@@ -1048,7 +1452,8 @@ def search_resources_api(keyword: str):
             resource_type,
             link,
             description,
-            is_favorite
+            is_favorite,
+            created_by
         FROM resources
         WHERE subject LIKE ?
            OR title LIKE ?
@@ -1079,6 +1484,10 @@ def search_resources_api(keyword: str):
 
     return resources
 
+
+# ---------------------------------------------------------
+# Main
+# ---------------------------------------------------------
 
 def main():
     print("Campus Knowledge Hub")
