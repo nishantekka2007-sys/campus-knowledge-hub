@@ -317,9 +317,7 @@ def update_resource():
     new_title = get_required_input("New title: ")
     new_type = get_required_input("New type: ")
     new_link = get_required_input("New link: ")
-    new_description = get_optional_input(
-        "New description: "
-    )
+    new_description = get_optional_input("New description: ")
 
     cursor.execute(
         """
@@ -407,25 +405,42 @@ def home(request: Request):
 
 
 @app.get("/resources")
-def get_resources():
+def get_resources(favorite: bool = False):
     connection = connect_database()
     connection.row_factory = sqlite3.Row
     cursor = connection.cursor()
 
-    cursor.execute(
-        """
-        SELECT
-            id,
-            subject,
-            title,
-            resource_type,
-            link,
-            description,
-            is_favorite
-        FROM resources
-        ORDER BY id
-        """
-    )
+    if favorite:
+        cursor.execute(
+            """
+            SELECT
+                id,
+                subject,
+                title,
+                resource_type,
+                link,
+                description,
+                is_favorite
+            FROM resources
+            WHERE is_favorite = 1
+            ORDER BY id
+            """
+        )
+    else:
+        cursor.execute(
+            """
+            SELECT
+                id,
+                subject,
+                title,
+                resource_type,
+                link,
+                description,
+                is_favorite
+            FROM resources
+            ORDER BY id
+            """
+        )
 
     resources = []
 
