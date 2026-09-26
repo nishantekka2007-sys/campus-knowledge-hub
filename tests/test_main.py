@@ -367,3 +367,35 @@ def test_create_resource_api_rejects_whitespace_fields(tmp_path, monkeypatch):
     )
 
     assert response.status_code == 422
+
+
+def test_create_resource_api_rejects_invalid_url(tmp_path, monkeypatch):
+    setup_test_database(tmp_path, monkeypatch)
+
+    response = client.post(
+        "/resources",
+        json={
+            "subject": "Java",
+            "title": "Java Basics",
+            "resource_type": "Notes",
+            "link": "not-a-valid-url",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_create_resource_api_accepts_https_url(tmp_path, monkeypatch):
+    setup_test_database(tmp_path, monkeypatch)
+
+    response = client.post(
+        "/resources",
+        json={
+            "subject": "FastAPI",
+            "title": "FastAPI Documentation",
+            "resource_type": "Documentation",
+            "link": "https://fastapi.tiangolo.com/",
+        },
+    )
+
+    assert response.status_code == 201
