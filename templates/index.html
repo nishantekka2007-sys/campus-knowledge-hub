@@ -3,49 +3,301 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>Campus Knowledge Hub</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            background: #f4f7fb;
+            color: #1f2937;
+            line-height: 1.6;
+        }
+
+        header {
+            background: #111827;
+            color: white;
+            padding: 50px 20px;
+        }
+
+        .header-content {
+            max-width: 1100px;
+            margin: auto;
+        }
+
+        header h1 {
+            font-size: 42px;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            color: #d1d5db;
+            font-size: 18px;
+        }
+
+        main {
+            max-width: 1100px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 250px;
+            padding: 14px 16px;
+            border: 1px solid #d1d5db;
+            border-radius: 10px;
+            font-size: 16px;
+            outline: none;
+        }
+
+        .search-box:focus {
+            border-color: #2563eb;
+        }
+
+        .resource-count {
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            font-weight: bold;
+            color: #4b5563;
+        }
+
+        #resources {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .resource-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            padding: 24px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .resource-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+        }
+
+        .resource-card h2 {
+            font-size: 22px;
+            margin-bottom: 12px;
+            color: #111827;
+        }
+
+        .resource-card p {
+            margin-bottom: 8px;
+            color: #4b5563;
+        }
+
+        .badge {
+            display: inline-block;
+            background: #e5edff;
+            color: #1d4ed8;
+            padding: 5px 10px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .resource-link {
+            display: inline-block;
+            margin-top: 15px;
+            color: white;
+            background: #2563eb;
+            text-decoration: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+
+        .resource-link:hover {
+            background: #1d4ed8;
+        }
+
+        .message {
+            background: white;
+            padding: 30px;
+            border-radius: 14px;
+            border: 1px solid #e5e7eb;
+            text-align: center;
+            color: #6b7280;
+        }
+
+        footer {
+            text-align: center;
+            padding: 30px 20px;
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        @media (max-width: 600px) {
+            header h1 {
+                font-size: 32px;
+            }
+
+            header {
+                padding: 35px 20px;
+            }
+
+            main {
+                margin-top: 25px;
+            }
+        }
+    </style>
 </head>
+
 <body>
 
-    <h1>Campus Knowledge Hub</h1>
+    <header>
+        <div class="header-content">
+            <h1>Campus Knowledge Hub</h1>
+            <p>Find and manage college learning resources in one place.</p>
+        </div>
+    </header>
 
-    <p>Find and manage college learning resources.</p>
+    <main>
 
-    <h2>Resources</h2>
+        <div class="toolbar">
+            <input
+                type="text"
+                id="searchInput"
+                class="search-box"
+                placeholder="Search by subject, title, or type..."
+            >
 
-    <div id="resources">
-        Loading resources...
-    </div>
+            <div class="resource-count" id="resourceCount">
+                Loading...
+            </div>
+        </div>
+
+        <div id="resources">
+            <div class="message">
+                Loading resources...
+            </div>
+        </div>
+
+    </main>
+
+    <footer>
+        Campus Knowledge Hub
+    </footer>
 
     <script>
-        async function loadResources() {
-            const response = await fetch("/resources");
-            const resources = await response.json();
+        let allResources = [];
 
+        async function loadResources() {
+            try {
+                const response = await fetch("/resources");
+
+                if (!response.ok) {
+                    throw new Error("Failed to load resources");
+                }
+
+                allResources = await response.json();
+
+                displayResources(allResources);
+
+            } catch (error) {
+                document.getElementById("resources").innerHTML = `
+                    <div class="message">
+                        Unable to load resources.
+                    </div>
+                `;
+
+                document.getElementById("resourceCount").textContent = "Error";
+            }
+        }
+
+        function displayResources(resources) {
             const container = document.getElementById("resources");
+            const count = document.getElementById("resourceCount");
+
+            count.textContent = `${resources.length} resource${resources.length === 1 ? "" : "s"}`;
 
             if (resources.length === 0) {
-                container.innerHTML = "<p>No resources available.</p>";
+                container.innerHTML = `
+                    <div class="message">
+                        No resources found.
+                    </div>
+                `;
                 return;
             }
 
             container.innerHTML = resources.map(resource => `
-                <div>
-                    <h3>${resource.title}</h3>
-                    <p>Subject: ${resource.subject}</p>
-                    <p>Type: ${resource.resource_type}</p>
-                    <a href="${resource.link}" target="_blank">
+                <article class="resource-card">
+
+                    <span class="badge">
+                        ${escapeHtml(resource.resource_type)}
+                    </span>
+
+                    <h2>
+                        ${escapeHtml(resource.title)}
+                    </h2>
+
+                    <p>
+                        <strong>Subject:</strong>
+                        ${escapeHtml(resource.subject)}
+                    </p>
+
+                    <a
+                        class="resource-link"
+                        href="${escapeAttribute(resource.link)}"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
                         Open Resource
                     </a>
-                </div>
-                <hr>
+
+                </article>
             `).join("");
         }
+
+        function escapeHtml(value) {
+            return String(value)
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+        }
+
+        function escapeAttribute(value) {
+            return escapeHtml(value);
+        }
+
+        document.getElementById("searchInput").addEventListener("input", function () {
+            const keyword = this.value.toLowerCase().trim();
+
+            const filteredResources = allResources.filter(resource =>
+                resource.subject.toLowerCase().includes(keyword) ||
+                resource.title.toLowerCase().includes(keyword) ||
+                resource.resource_type.toLowerCase().includes(keyword)
+            );
+
+            displayResources(filteredResources);
+        });
 
         loadResources();
     </script>
 
 </body>
 </html>
-
-
