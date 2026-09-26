@@ -89,6 +89,7 @@ def create_resource_with_title(
     title,
     resource_type="Course",
     subject="Python",
+    description=None,
 ):
     response = client.post(
         "/resources",
@@ -97,7 +98,11 @@ def create_resource_with_title(
             "title": title,
             "resource_type": resource_type,
             "link": "https://example.com/resource",
-            "description": f"Description for {title}.",
+            "description": (
+                description
+                if description is not None
+                else f"Description for {title}."
+            ),
         },
     )
 
@@ -883,10 +888,7 @@ def test_not_found_resource_api(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(
-        tmp_path,
-        monkeypatch,
-    )
+    setup_test_database(tmp_path, monkeypatch)
 
     response = client.get(
         "/resources/9999"
@@ -908,10 +910,7 @@ def test_create_resource_api_rejects_empty_fields(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(
-        tmp_path,
-        monkeypatch,
-    )
+    setup_test_database(tmp_path, monkeypatch)
 
     register_and_login(client)
 
@@ -934,10 +933,7 @@ def test_create_resource_api_rejects_whitespace_fields(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(
-        tmp_path,
-        monkeypatch,
-    )
+    setup_test_database(tmp_path, monkeypatch)
 
     register_and_login(client)
 
@@ -960,10 +956,7 @@ def test_create_resource_api_rejects_invalid_url(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(
-        tmp_path,
-        monkeypatch,
-    )
+    setup_test_database(tmp_path, monkeypatch)
 
     register_and_login(client)
 
@@ -984,10 +977,7 @@ def test_create_resource_api_accepts_https_url(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(
-        tmp_path,
-        monkeypatch,
-    )
+    setup_test_database(tmp_path, monkeypatch)
 
     register_and_login(client)
 
@@ -1014,10 +1004,7 @@ def test_register_api(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(
-        tmp_path,
-        monkeypatch,
-    )
+    setup_test_database(tmp_path, monkeypatch)
 
     response = client.post(
         "/register",
@@ -1039,10 +1026,7 @@ def test_register_duplicate_username(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(
-        tmp_path,
-        monkeypatch,
-    )
+    setup_test_database(tmp_path, monkeypatch)
 
     first_response = client.post(
         "/register",
@@ -1075,10 +1059,7 @@ def test_login_api(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(
-        tmp_path,
-        monkeypatch,
-    )
+    setup_test_database(tmp_path, monkeypatch)
 
     register_response = client.post(
         "/register",
@@ -1110,10 +1091,7 @@ def test_login_rejects_invalid_password(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(
-        tmp_path,
-        monkeypatch,
-    )
+    setup_test_database(tmp_path, monkeypatch)
 
     register_response = client.post(
         "/register",
@@ -1143,10 +1121,7 @@ def test_me_requires_authentication(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(
-        tmp_path,
-        monkeypatch,
-    )
+    setup_test_database(tmp_path, monkeypatch)
 
     unauthenticated_client = TestClient(
         main.app
@@ -1165,10 +1140,7 @@ def test_me_returns_current_user(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(
-        tmp_path,
-        monkeypatch,
-    )
+    setup_test_database(tmp_path, monkeypatch)
 
     authenticated_client = TestClient(
         main.app
@@ -1196,10 +1168,7 @@ def test_logout_api(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(
-        tmp_path,
-        monkeypatch,
-    )
+    setup_test_database(tmp_path, monkeypatch)
 
     authenticated_client = TestClient(
         main.app
@@ -1238,10 +1207,7 @@ def test_protected_create_requires_login(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(
-        tmp_path,
-        monkeypatch,
-    )
+    setup_test_database(tmp_path, monkeypatch)
 
     unauthenticated_client = TestClient(
         main.app
@@ -1270,10 +1236,7 @@ def test_upload_pdf_api(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(
-        tmp_path,
-        monkeypatch,
-    )
+    setup_test_database(tmp_path, monkeypatch)
 
     register_and_login(client)
 
@@ -1321,10 +1284,7 @@ def test_resource_shows_attached_file(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(
-        tmp_path,
-        monkeypatch,
-    )
+    setup_test_database(tmp_path, monkeypatch)
 
     register_and_login(client)
 
@@ -1364,10 +1324,7 @@ def test_download_pdf_api(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(
-        tmp_path,
-        monkeypatch,
-    )
+    setup_test_database(tmp_path, monkeypatch)
 
     register_and_login(client)
 
@@ -1406,10 +1363,7 @@ def test_upload_rejects_non_pdf(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(
-        tmp_path,
-        monkeypatch,
-    )
+    setup_test_database(tmp_path, monkeypatch)
 
     register_and_login(client)
 
@@ -1438,10 +1392,7 @@ def test_upload_rejects_fake_pdf(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(
-        tmp_path,
-        monkeypatch,
-    )
+    setup_test_database(tmp_path, monkeypatch)
 
     register_and_login(client)
 
@@ -1470,10 +1421,7 @@ def test_student_cannot_upload_to_others_resource(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(
-        tmp_path,
-        monkeypatch,
-    )
+    setup_test_database(tmp_path, monkeypatch)
 
     register_and_login(
         client,
@@ -1509,10 +1457,7 @@ def test_delete_pdf_api(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(
-        tmp_path,
-        monkeypatch,
-    )
+    setup_test_database(tmp_path, monkeypatch)
 
     register_and_login(client)
 
@@ -1550,9 +1495,7 @@ def test_delete_pdf_api(
 
     assert resource_response.status_code == 200
 
-    resource_body = (
-        resource_response.json()
-    )
+    resource_body = resource_response.json()
 
     assert resource_body["has_file"] is False
     assert resource_body["file_name"] is None
@@ -1563,10 +1506,7 @@ def test_download_missing_file_returns_404(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(
-        tmp_path,
-        monkeypatch,
-    )
+    setup_test_database(tmp_path, monkeypatch)
 
     register_and_login(client)
 
@@ -1593,10 +1533,7 @@ def test_resources_pagination_headers(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(
-        tmp_path,
-        monkeypatch,
-    )
+    setup_test_database(tmp_path, monkeypatch)
 
     register_and_login(client)
 
@@ -1627,10 +1564,7 @@ def test_resources_pagination_page_three(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(
-        tmp_path,
-        monkeypatch,
-    )
+    setup_test_database(tmp_path, monkeypatch)
 
     register_and_login(client)
 
@@ -1659,10 +1593,7 @@ def test_resources_sort_title_ascending(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(
-        tmp_path,
-        monkeypatch,
-    )
+    setup_test_database(tmp_path, monkeypatch)
 
     register_and_login(client)
 
@@ -1702,10 +1633,7 @@ def test_resources_sort_title_descending(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(
-        tmp_path,
-        monkeypatch,
-    )
+    setup_test_database(tmp_path, monkeypatch)
 
     register_and_login(client)
 
@@ -1745,10 +1673,7 @@ def test_resources_invalid_page(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(
-        tmp_path,
-        monkeypatch,
-    )
+    setup_test_database(tmp_path, monkeypatch)
 
     response = client.get(
         "/resources?page=0"
@@ -1761,10 +1686,7 @@ def test_resources_invalid_limit(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(
-        tmp_path,
-        monkeypatch,
-    )
+    setup_test_database(tmp_path, monkeypatch)
 
     response = client.get(
         "/resources?limit=101"
@@ -1777,10 +1699,7 @@ def test_resources_invalid_sort_by(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(
-        tmp_path,
-        monkeypatch,
-    )
+    setup_test_database(tmp_path, monkeypatch)
 
     response = client.get(
         "/resources?sort_by=subject"
@@ -1793,13 +1712,232 @@ def test_resources_invalid_order(
     tmp_path,
     monkeypatch,
 ):
-    setup_test_database(
-        tmp_path,
-        monkeypatch,
-    )
+    setup_test_database(tmp_path, monkeypatch)
 
     response = client.get(
         "/resources?order=random"
+    )
+
+    assert response.status_code == 422
+
+
+# =========================================================
+# SEARCH PAGINATION / SORTING TESTS
+# =========================================================
+
+def test_search_pagination_headers(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(tmp_path, monkeypatch)
+
+    register_and_login(client)
+
+    for number in range(12):
+        create_resource_with_title(
+            f"Python Resource {number:02d}",
+            description=(
+                f"Python learning resource {number}"
+            ),
+        )
+
+    response = client.get(
+        "/resources/search/Python"
+        "?page=2&limit=5"
+    )
+
+    assert response.status_code == 200
+
+    results = response.json()
+
+    assert len(results) == 5
+
+    assert response.headers["X-Page"] == "2"
+    assert response.headers["X-Limit"] == "5"
+    assert response.headers["X-Total"] == "12"
+    assert response.headers["X-Pages"] == "3"
+    assert response.headers["X-Sort-By"] == "id"
+    assert response.headers["X-Order"] == "asc"
+
+
+def test_search_pagination_last_page(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(tmp_path, monkeypatch)
+
+    register_and_login(client)
+
+    for number in range(12):
+        create_resource_with_title(
+            f"Python Resource {number:02d}",
+            description=(
+                f"Python learning resource {number}"
+            ),
+        )
+
+    response = client.get(
+        "/resources/search/Python"
+        "?page=3&limit=5"
+    )
+
+    assert response.status_code == 200
+
+    results = response.json()
+
+    assert len(results) == 2
+
+    assert response.headers["X-Page"] == "3"
+    assert response.headers["X-Limit"] == "5"
+    assert response.headers["X-Total"] == "12"
+    assert response.headers["X-Pages"] == "3"
+
+
+def test_search_sort_title_ascending(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(tmp_path, monkeypatch)
+
+    register_and_login(client)
+
+    create_resource_with_title(
+        "Python Zebra"
+    )
+
+    create_resource_with_title(
+        "Python Alpha"
+    )
+
+    create_resource_with_title(
+        "Python Middle"
+    )
+
+    response = client.get(
+        "/resources/search/Python"
+        "?sort_by=title&order=asc"
+    )
+
+    assert response.status_code == 200
+
+    titles = [
+        resource["title"]
+        for resource in response.json()
+    ]
+
+    assert titles == [
+        "Python Alpha",
+        "Python Middle",
+        "Python Zebra",
+    ]
+
+    assert (
+        response.headers["X-Sort-By"]
+        == "title"
+    )
+
+    assert (
+        response.headers["X-Order"]
+        == "asc"
+    )
+
+
+def test_search_sort_title_descending(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(tmp_path, monkeypatch)
+
+    register_and_login(client)
+
+    create_resource_with_title(
+        "Python Zebra"
+    )
+
+    create_resource_with_title(
+        "Python Alpha"
+    )
+
+    create_resource_with_title(
+        "Python Middle"
+    )
+
+    response = client.get(
+        "/resources/search/Python"
+        "?sort_by=title&order=desc"
+    )
+
+    assert response.status_code == 200
+
+    titles = [
+        resource["title"]
+        for resource in response.json()
+    ]
+
+    assert titles == [
+        "Python Zebra",
+        "Python Middle",
+        "Python Alpha",
+    ]
+
+    assert (
+        response.headers["X-Sort-By"]
+        == "title"
+    )
+
+    assert (
+        response.headers["X-Order"]
+        == "desc"
+    )
+
+
+def test_search_invalid_page(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(tmp_path, monkeypatch)
+
+    response = client.get(
+        "/resources/search/Python?page=0"
+    )
+
+    assert response.status_code == 422
+
+
+def test_search_invalid_limit(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(tmp_path, monkeypatch)
+
+    response = client.get(
+        "/resources/search/Python?limit=101"
+    )
+
+    assert response.status_code == 422
+
+
+def test_search_invalid_sort_by(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(tmp_path, monkeypatch)
+
+    response = client.get(
+        "/resources/search/Python?sort_by=subject"
+    )
+
+    assert response.status_code == 422
+
+
+def test_search_invalid_order(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(tmp_path, monkeypatch)
+
+    response = client.get(
+        "/resources/search/Python?order=random"
     )
 
     assert response.status_code == 422
