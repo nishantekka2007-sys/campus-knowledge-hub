@@ -33,7 +33,10 @@ def register_and_login(
         },
     )
 
-    assert register_response.status_code in (200, 201)
+    assert register_response.status_code in (
+        200,
+        201,
+    )
 
     login_response = client_instance.post(
         "/login",
@@ -82,6 +85,27 @@ def create_test_resource():
     return response.json()["id"]
 
 
+def create_resource_with_title(
+    title,
+    resource_type="Course",
+    subject="Python",
+):
+    response = client.post(
+        "/resources",
+        json={
+            "subject": subject,
+            "title": title,
+            "resource_type": resource_type,
+            "link": "https://example.com/resource",
+            "description": f"Description for {title}.",
+        },
+    )
+
+    assert response.status_code == 201
+
+    return response.json()["id"]
+
+
 def valid_pdf_content():
     return (
         b"%PDF-1.4\n"
@@ -91,6 +115,10 @@ def valid_pdf_content():
         b"%%EOF\n"
     )
 
+
+# =========================================================
+# DATABASE / BASIC TESTS
+# =========================================================
 
 def test_create_table(tmp_path, monkeypatch):
     setup_test_database(tmp_path, monkeypatch)
@@ -316,6 +344,10 @@ def test_delete_resource(tmp_path, monkeypatch):
 
     assert result is None
 
+
+# =========================================================
+# BASIC API TESTS
+# =========================================================
 
 def test_homepage():
     response = client.get("/")
@@ -868,6 +900,10 @@ def test_not_found_resource_api(
     )
 
 
+# =========================================================
+# VALIDATION TESTS
+# =========================================================
+
 def test_create_resource_api_rejects_empty_fields(
     tmp_path,
     monkeypatch,
@@ -969,6 +1005,10 @@ def test_create_resource_api_accepts_https_url(
 
     assert response.status_code == 201
 
+
+# =========================================================
+# AUTHENTICATION TESTS
+# =========================================================
 
 def test_register_api(
     tmp_path,
@@ -1543,3 +1583,223 @@ def test_download_missing_file_returns_404(
         == "No file is attached "
         "to this resource"
     )
+
+
+# =========================================================
+# PAGINATION TESTS
+# =========================================================
+
+def test_resources_pagination_headers(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
+
+    register_and_login(client)
+
+    for number in range(12):
+        create_resource_with_title(
+            f"Resource {number:02d}"
+        )
+
+    response = client.get(
+        "/resources?page=2&limit=5"
+    )
+
+    assert response.status_code == 200
+
+    results = response.json()
+
+    assert len(results) == 5
+
+    assert response.headers["X-Page"] == "2"
+    assert response.headers["X-Limit"] == "5"
+    assert response.headers["X-Total"] == "12"
+    assert response.headers["X-Pages"] == "3"
+    assert response.headers["X-Sort-By"] == "id"
+    assert response.headers["X-Order"] == "asc"
+
+
+def test_resources_pagination_page_three(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
+
+    register_and_login(client)
+
+    for number in range(12):
+        create_resource_with_title(
+            f"Resource {number:02d}"
+        )
+
+    response = client.get(
+        "/resources?page=3&limit=5"
+    )
+
+    assert response.status_code == 200
+
+    results = response.json()
+
+    assert len(results) == 2
+
+    assert response.headers["X-Page"] == "3"
+    assert response.headers["X-Limit"] == "5"
+    assert response.headers["X-Total"] == "12"
+    assert response.headers["X-Pages"] == "3"
+
+
+def test_resources_sort_title_ascending(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
+
+    register_and_login(client)
+
+    create_resource_with_title("Zebra")
+    create_resource_with_title("Alpha")
+    create_resource_with_title("Middle")
+
+    response = client.get(
+        "/resources?sort_by=title&order=asc"
+    )
+
+    assert response.status_code == 200
+
+    titles = [
+        resource["title"]
+        for resource in response.json()
+    ]
+
+    assert titles == [
+        "Alpha",
+        "Middle",
+        "Zebra",
+    ]
+
+    assert (
+        response.headers["X-Sort-By"]
+        == "title"
+    )
+
+    assert (
+        response.headers["X-Order"]
+        == "asc"
+    )
+
+
+def test_resources_sort_title_descending(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
+
+    register_and_login(client)
+
+    create_resource_with_title("Zebra")
+    create_resource_with_title("Alpha")
+    create_resource_with_title("Middle")
+
+    response = client.get(
+        "/resources?sort_by=title&order=desc"
+    )
+
+    assert response.status_code == 200
+
+    titles = [
+        resource["title"]
+        for resource in response.json()
+    ]
+
+    assert titles == [
+        "Zebra",
+        "Middle",
+        "Alpha",
+    ]
+
+    assert (
+        response.headers["X-Sort-By"]
+        == "title"
+    )
+
+    assert (
+        response.headers["X-Order"]
+        == "desc"
+    )
+
+
+def test_resources_invalid_page(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
+
+    response = client.get(
+        "/resources?page=0"
+    )
+
+    assert response.status_code == 422
+
+
+def test_resources_invalid_limit(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
+
+    response = client.get(
+        "/resources?limit=101"
+    )
+
+    assert response.status_code == 422
+
+
+def test_resources_invalid_sort_by(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
+
+    response = client.get(
+        "/resources?sort_by=subject"
+    )
+
+    assert response.status_code == 422
+
+
+def test_resources_invalid_order(
+    tmp_path,
+    monkeypatch,
+):
+    setup_test_database(
+        tmp_path,
+        monkeypatch,
+    )
+
+    response = client.get(
+        "/resources?order=random"
+    )
+
+    assert response.status_code == 422

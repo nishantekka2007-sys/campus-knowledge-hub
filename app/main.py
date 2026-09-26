@@ -16,6 +16,7 @@ from fastapi import (
     HTTPException,
     Query,
     Request,
+    Response,
     UploadFile,
 )
 from fastapi.responses import (
@@ -58,9 +59,8 @@ VALID_ROLES = {
 app = FastAPI(
     title="Campus Knowledge Hub",
     description="API for managing college learning resources",
-    version="1.2.0",
+    version="1.3.0",
 )
-
 
 templates = Jinja2Templates(
     directory="templates"
@@ -109,19 +109,19 @@ class LoginRequest(BaseModel):
 
 class Resource(BaseModel):
     subject: str = Field(
-        min_length=1
+        min_length=1,
     )
 
     title: str = Field(
-        min_length=1
+        min_length=1,
     )
 
     resource_type: str = Field(
-        min_length=1
+        min_length=1,
     )
 
     link: str = Field(
-        min_length=1
+        min_length=1,
     )
 
     description: str = Field(
@@ -171,8 +171,7 @@ class Resource(BaseModel):
             or not parsed_url.netloc
         ):
             raise ValueError(
-                "Link must be a valid "
-                "HTTP or HTTPS URL"
+                "Link must be a valid HTTP or HTTPS URL"
             )
 
         return value
@@ -186,7 +185,7 @@ class RoleUpdateRequest(BaseModel):
 
 
 # =========================================================
-# DATABASE CONNECTION
+# DATABASE
 # =========================================================
 
 def connect_database():
@@ -260,7 +259,7 @@ def verify_password(
 
 
 # =========================================================
-# FILE SYSTEM HELPERS
+# FILE HELPERS
 # =========================================================
 
 def ensure_upload_directory():
@@ -718,7 +717,7 @@ def check_resource_modify_permission(
 
 
 # =========================================================
-# CLI FUNCTIONS
+# CLI HELPERS
 # =========================================================
 
 def get_required_input(
@@ -998,14 +997,13 @@ def search_resources():
         )
 
         print(
-            f"Attached PDF: "
+            "Attached PDF: "
             f"{file_name or 'None'}"
         )
 
         if file_size is not None:
             print(
-                f"File size: "
-                f"{file_size} bytes"
+                f"File size: {file_size} bytes"
             )
 
 
@@ -1284,9 +1282,7 @@ def register_user(
     connection.close()
 
     return {
-        "message": (
-            "Registration successful"
-        ),
+        "message": "Registration successful",
         "id": user_id,
         "username": data.username,
         "role": "student",
@@ -1399,15 +1395,9 @@ def get_me(
 ):
     return {
         "id": current_user["id"],
-        "username": current_user[
-            "username"
-        ],
-        "role": current_user[
-            "role"
-        ],
-        "created_at": current_user[
-            "created_at"
-        ],
+        "username": current_user["username"],
+        "role": current_user["role"],
+        "created_at": current_user["created_at"],
     }
 
 
@@ -1547,32 +1537,37 @@ def update_user_role(
 
 @app.get("/resources")
 def get_resources(
+    response: Response,
     favorite: bool = False,
     resource_type: str | None = Query(
         default=None,
         alias="type",
     ),
+    page: int = Query(
+        default=1,
+        ge=1,
+    ),
+    limit: int = Query(
+        default=10,
+        ge=1,
+        le=100,
+    ),
+    sort_by: Literal[
+        "id",
+        "title",
+    ] = Query(
+        default="id",
+    ),
+    order: Literal[
+        "asc",
+        "desc",
+    ] = Query(
+        default="asc",
+    ),
 ):
     connection = connect_database()
     connection.row_factory = sqlite3.Row
     cursor = connection.cursor()
-
-    query = """
-        SELECT
-            resources.id,
-            resources.subject,
-            resources.title,
-            resources.resource_type,
-            resources.link,
-            resources.description,
-            resources.is_favorite,
-            resources.created_by,
-            resources.file_name,
-            resources.file_size,
-            resources.file_content_type,
-            resources.uploaded_at
-        FROM resources
-    """
 
     conditions = []
     parameters = []
@@ -1594,21 +1589,72 @@ def get_resources(
             resource_type.strip()
         )
 
+    where_clause = ""
+
     if conditions:
-        query += (
+        where_clause = (
             " WHERE "
             + " AND ".join(
                 conditions
             )
         )
 
-    query += (
-        " ORDER BY resources.id"
+    cursor.execute(
+        f"""
+        SELECT COUNT(*)
+        FROM resources
+        {where_clause}
+        """,
+        parameters,
+    )
+
+    total = cursor.fetchone()[0]
+
+    sort_column = {
+        "id": "resources.id",
+        "title": "resources.title",
+    }[sort_by]
+
+    sort_order = (
+        "DESC"
+        if order == "desc"
+        else "ASC"
+    )
+
+    offset = (
+        (page - 1)
+        * limit
     )
 
     cursor.execute(
-        query,
-        parameters,
+        f"""
+        SELECT
+            resources.id,
+            resources.subject,
+            resources.title,
+            resources.resource_type,
+            resources.link,
+            resources.description,
+            resources.is_favorite,
+            resources.created_by,
+            resources.file_name,
+            resources.file_size,
+            resources.file_content_type,
+            resources.uploaded_at
+        FROM resources
+        {where_clause}
+        ORDER BY
+            {sort_column}
+            {sort_order},
+            resources.id
+            {sort_order}
+        LIMIT ?
+        OFFSET ?
+        """,
+        parameters + [
+            limit,
+            offset,
+        ],
     )
 
     resources = []
@@ -1616,23 +1662,12 @@ def get_resources(
     for row in cursor.fetchall():
         resource = dict(row)
 
-        resource[
-            "is_favorite"
-        ] = bool(
-            resource[
-                "is_favorite"
-            ]
+        resource["is_favorite"] = bool(
+            resource["is_favorite"]
         )
 
-        # IMPORTANT:
-        # Do not expose the internal file_path.
-        # has_file is determined safely from file_name.
-        resource[
-            "has_file"
-        ] = bool(
-            resource.get(
-                "file_name"
-            )
+        resource["has_file"] = bool(
+            resource.get("file_name")
         )
 
         resources.append(
@@ -1640,6 +1675,19 @@ def get_resources(
         )
 
     connection.close()
+
+    pages = (
+        (total + limit - 1) // limit
+        if total > 0
+        else 0
+    )
+
+    response.headers["X-Page"] = str(page)
+    response.headers["X-Limit"] = str(limit)
+    response.headers["X-Total"] = str(total)
+    response.headers["X-Pages"] = str(pages)
+    response.headers["X-Sort-By"] = sort_by
+    response.headers["X-Order"] = order
 
     return resources
 
@@ -1692,20 +1740,12 @@ def get_resource(
 
     result = dict(resource)
 
-    result[
-        "is_favorite"
-    ] = bool(
-        result[
-            "is_favorite"
-        ]
+    result["is_favorite"] = bool(
+        result["is_favorite"]
     )
 
-    result[
-        "has_file"
-    ] = bool(
-        result.get(
-            "file_name"
-        )
+    result["has_file"] = bool(
+        result.get("file_name")
     )
 
     result.pop(
@@ -1810,10 +1850,14 @@ def update_resource_api(
             detail="Resource not found",
         )
 
-    check_resource_modify_permission(
-        existing_resource,
-        current_user,
-    )
+    try:
+        check_resource_modify_permission(
+            existing_resource,
+            current_user,
+        )
+    except HTTPException:
+        connection.close()
+        raise
 
     cursor.execute(
         """
@@ -1886,9 +1930,7 @@ def toggle_favorite(
 
     new_status = (
         0
-        if resource[
-            "is_favorite"
-        ]
+        if resource["is_favorite"]
         else 1
     )
 
@@ -1960,9 +2002,7 @@ def delete_resource_api(
         )
 
     old_file_path = (
-        existing_resource[
-            "file_path"
-        ]
+        existing_resource["file_path"]
     )
 
     cursor.execute(
@@ -2043,20 +2083,12 @@ def search_resources_api(
     for row in cursor.fetchall():
         resource = dict(row)
 
-        resource[
-            "is_favorite"
-        ] = bool(
-            resource[
-                "is_favorite"
-            ]
+        resource["is_favorite"] = bool(
+            resource["is_favorite"]
         )
 
-        resource[
-            "has_file"
-        ] = bool(
-            resource.get(
-                "file_name"
-            )
+        resource["has_file"] = bool(
+            resource.get("file_name")
         )
 
         resources.append(
@@ -2091,9 +2123,7 @@ async def upload_resource_file(
 
         raise HTTPException(
             status_code=415,
-            detail=(
-                "Only PDF files are allowed"
-            ),
+            detail="Only PDF files are allowed",
         )
 
     original_filename = (
@@ -2109,9 +2139,7 @@ async def upload_resource_file(
 
         raise HTTPException(
             status_code=415,
-            detail=(
-                "Only .pdf files are allowed"
-            ),
+            detail="Only .pdf files are allowed",
         )
 
     connection = connect_database()
@@ -2142,10 +2170,15 @@ async def upload_resource_file(
             detail="Resource not found",
         )
 
-    check_resource_modify_permission(
-        resource,
-        current_user,
-    )
+    try:
+        check_resource_modify_permission(
+            resource,
+            current_user,
+        )
+    except HTTPException:
+        connection.close()
+        await file.close()
+        raise
 
     ensure_upload_directory()
 
@@ -2176,9 +2209,7 @@ async def upload_resource_file(
                     break
 
                 if not first_chunk:
-                    first_chunk = chunk[
-                        :5
-                    ]
+                    first_chunk = chunk[:5]
 
                 total_size += len(chunk)
 
@@ -2350,23 +2381,17 @@ def download_resource_file(
     if not file_path.is_file():
         raise HTTPException(
             status_code=404,
-            detail=(
-                "Attached file is missing"
-            ),
+            detail="Attached file is missing",
         )
 
     return FileResponse(
         path=file_path,
         media_type=(
-            resource[
-                "file_content_type"
-            ]
+            resource["file_content_type"]
             or ALLOWED_CONTENT_TYPE
         ),
         filename=(
-            resource[
-                "file_name"
-            ]
+            resource["file_name"]
             or "resource.pdf"
         ),
     )
@@ -2412,10 +2437,14 @@ def delete_resource_file(
             detail="Resource not found",
         )
 
-    check_resource_modify_permission(
-        resource,
-        current_user,
-    )
+    try:
+        check_resource_modify_permission(
+            resource,
+            current_user,
+        )
+    except HTTPException:
+        connection.close()
+        raise
 
     if not resource["file_path"]:
         connection.close()
