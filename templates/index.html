@@ -66,16 +66,25 @@
             gap: 15px;
         }
 
-        .resource-form input {
+        .resource-form input,
+        .resource-form textarea {
             width: 100%;
             padding: 13px 15px;
             border: 1px solid #d1d5db;
             border-radius: 9px;
             font-size: 15px;
             outline: none;
+            font-family: inherit;
         }
 
-        .resource-form input:focus {
+        .resource-form textarea {
+            grid-column: 1 / -1;
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .resource-form input:focus,
+        .resource-form textarea:focus {
             border-color: #2563eb;
         }
 
@@ -173,6 +182,15 @@
             color: #4b5563;
         }
 
+        .description {
+            margin-top: 12px;
+            padding: 12px;
+            background: #f9fafb;
+            border-radius: 9px;
+            color: #4b5563;
+            white-space: pre-wrap;
+        }
+
         .badge {
             display: inline-block;
             background: #e5edff;
@@ -268,6 +286,10 @@
                 grid-template-columns: 1fr;
             }
 
+            .resource-form textarea {
+                grid-column: auto;
+            }
+
             .search-box,
             .type-filter {
                 width: 100%;
@@ -326,6 +348,12 @@
                     required
                 >
 
+                <textarea
+                    id="description"
+                    placeholder="Short description (optional, max 500 characters)"
+                    maxlength="500"
+                ></textarea>
+
                 <button type="submit" class="form-button">
                     Add Resource
                 </button>
@@ -341,7 +369,7 @@
                 type="text"
                 id="searchInput"
                 class="search-box"
-                placeholder="Search by subject, title, or type..."
+                placeholder="Search by subject, title, type, or description..."
             >
 
             <select id="typeFilter" class="type-filter">
@@ -372,7 +400,9 @@
 
 
         async function loadResources() {
+
             try {
+
                 const response = await fetch("/resources");
 
                 if (!response.ok) {
@@ -447,10 +477,14 @@
 
             const filteredResources = allResources.filter(resource => {
 
+                const description =
+                    (resource.description || "").toLowerCase();
+
                 const matchesSearch =
                     resource.subject.toLowerCase().includes(keyword) ||
                     resource.title.toLowerCase().includes(keyword) ||
-                    resource.resource_type.toLowerCase().includes(keyword);
+                    resource.resource_type.toLowerCase().includes(keyword) ||
+                    description.includes(keyword);
 
                 const matchesType =
                     !selectedType ||
@@ -498,6 +532,17 @@
                         <strong>Subject:</strong>
                         ${escapeHtml(resource.subject)}
                     </p>
+
+                    ${
+                        resource.description
+                            ? `
+                                <div class="description">
+                                    <strong>Description:</strong><br>
+                                    ${escapeHtml(resource.description)}
+                                </div>
+                              `
+                            : ""
+                    }
 
                     <a
                         class="resource-link"
@@ -579,7 +624,10 @@
                         document.getElementById("resourceType").value.trim(),
 
                     link:
-                        document.getElementById("link").value.trim()
+                        document.getElementById("link").value.trim(),
+
+                    description:
+                        document.getElementById("description").value.trim()
                 };
 
                 message.textContent = "Adding resource...";
@@ -709,6 +757,15 @@
                 return;
             }
 
+            const description = prompt(
+                "Description:",
+                resource.description || ""
+            );
+
+            if (description === null) {
+                return;
+            }
+
             try {
 
                 const response = await fetch(
@@ -732,7 +789,10 @@
                                 resourceType.trim(),
 
                             link:
-                                link.trim()
+                                link.trim(),
+
+                            description:
+                                description.trim()
                         })
                     }
                 );
