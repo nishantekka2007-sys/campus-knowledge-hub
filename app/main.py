@@ -1428,9 +1428,57 @@ def login_user(
 def logout_user(
     request: Request,
 ):
-    token = request.cookies.get(
+    authorization = request.headers.get(
+        "Authorization"
+    )
+
+    token = None
+
+    if authorization:
+        scheme, _, header_token = (
+            authorization.partition(" ")
+        )
+
+        if (
+            scheme.lower() == "bearer"
+            and header_token
+        ):
+            token = header_token.strip()
+
+    if not token:
+        token = request.cookies.get(
+            "session_token"
+        )
+
+    if token:
+        connection = connect_database()
+        cursor = connection.cursor()
+
+        cursor.execute(
+            """
+            DELETE FROM sessions
+            WHERE token = ?
+            """,
+            (token,),
+        )
+
+        connection.commit()
+        connection.close()
+
+    response = JSONResponse(
+        {
+            "message": (
+                "Logged out successfully"
+            )
+        }
+    )
+
+    response.delete_cookie(
         "session_token"
     )
+
+    return response
+
 
     if token:
         connection = connect_database()
