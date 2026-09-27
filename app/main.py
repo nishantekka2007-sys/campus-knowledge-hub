@@ -2590,10 +2590,16 @@ def download_resource_file(
             resource["file_content_type"]
             or ALLOWED_CONTENT_TYPE
         ),
-        filename=(
-            resource["file_name"]
-            or "resource.pdf"
-        ),
+        headers={
+            "Content-Disposition": (
+                'inline; filename="'
+                + (
+                    resource["file_name"]
+                    or "resource.pdf"
+                )
+                + '"'
+            )
+        },
     )
 
 
