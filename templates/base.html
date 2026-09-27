@@ -1280,33 +1280,26 @@
 
 <script>
 
-
     function escapeHtml(value) {
-
         return String(
             value ?? ""
         )
-
         .replaceAll(
             "&",
             "&amp;"
         )
-
         .replaceAll(
             "<",
             "&lt;"
         )
-
         .replaceAll(
             ">",
             "&gt;"
         )
-
         .replaceAll(
             '"',
             "&quot;"
         )
-
         .replaceAll(
             "'",
             "&#039;"
@@ -1314,36 +1307,29 @@
     }
 
 
-
     function showToast(
         message,
         type = ""
     ) {
-
         const region =
             document.getElementById(
                 "toast-region"
             );
-
 
         const toast =
             document.createElement(
                 "div"
             );
 
-
         toast.className =
             "toast " + type;
-
 
         toast.textContent =
             message;
 
-
         region.appendChild(
             toast
         );
-
 
         setTimeout(
             () => {
@@ -1354,23 +1340,18 @@
     }
 
 
-
     async function getApiError(
         response
     ) {
-
         try {
-
             const data =
                 await response.json();
-
 
             if (
                 Array.isArray(
                     data.detail
                 )
             ) {
-
                 return data.detail
                     .map(
                         item =>
@@ -1380,14 +1361,12 @@
                     .join(" ");
             }
 
-
             return (
                 data.detail ||
                 "Request failed."
             );
 
         } catch {
-
             return (
                 "Request failed (" +
                 response.status +
@@ -1397,49 +1376,143 @@
     }
 
 
+    function getTabSessionToken() {
+        return sessionStorage.getItem(
+            "campus_session_token"
+        );
+    }
+
+
+    /*
+     * Add the session token belonging to
+     * this browser tab to same-origin API
+     * requests.
+     *
+     * sessionStorage is isolated per tab,
+     * so each tab can remain logged in as
+     * a different user.
+     */
+    const originalFetch =
+        window.fetch.bind(window);
+
+    window.fetch = function(
+        input,
+        init = {}
+    ) {
+        const token =
+            getTabSessionToken();
+
+        let requestUrl = "";
+
+        try {
+            if (
+                typeof input ===
+                "string"
+            ) {
+                requestUrl =
+                    new URL(
+                        input,
+                        window.location.origin
+                    ).href;
+            } else if (
+                input instanceof Request
+            ) {
+                requestUrl =
+                    new URL(
+                        input.url,
+                        window.location.origin
+                    ).href;
+            }
+        } catch {
+            requestUrl = "";
+        }
+
+        const sameOrigin =
+            requestUrl.startsWith(
+                window.location.origin
+            );
+
+        if (!sameOrigin) {
+            return originalFetch(
+                input,
+                init
+            );
+        }
+
+        const headers =
+            new Headers(
+                init.headers ||
+                (
+                    input instanceof Request
+                        ? input.headers
+                        : undefined
+                )
+            );
+
+        headers.set(
+            "X-Campus-Tab",
+            "1"
+        );
+
+        if (
+            token &&
+            !headers.has(
+                "Authorization"
+            )
+        ) {
+            headers.set(
+                "Authorization",
+                "Bearer " + token
+            );
+        }
+
+        init = {
+            ...init,
+            headers: headers
+        };
+
+        return originalFetch(
+            input,
+            init
+        );
+    };
+
+
 
     function updateNavigation(
         user
     ) {
-
         const account =
             document.getElementById(
                 "account-link"
             );
-
 
         const admin =
             document.getElementById(
                 "admin-link"
             );
 
-
         const login =
             document.getElementById(
                 "login-link"
             );
-
 
         const register =
             document.getElementById(
                 "register-link"
             );
 
-
         const logout =
             document.getElementById(
                 "logout-button"
             );
-
 
         const chip =
             document.getElementById(
                 "user-chip"
             );
 
-
         if (user) {
-
             account.hidden = false;
 
             admin.hidden =
@@ -1453,12 +1526,10 @@
 
             chip.hidden = false;
 
-
             document.getElementById(
                 "nav-username"
             ).textContent =
                 user.username;
-
 
             document.getElementById(
                 "nav-role"
@@ -1466,7 +1537,6 @@
                 user.role;
 
         } else {
-
             account.hidden = true;
 
             admin.hidden = true;
@@ -1482,25 +1552,39 @@
     }
 
 
-
     async function refreshNavigation() {
-
         try {
+            const token =
+                getTabSessionToken();
+
+            const headers =
+                new Headers();
+
+            headers.set(
+                "X-Campus-Tab",
+                "1"
+            );
+
+            if (token) {
+                headers.set(
+                    "Authorization",
+                    "Bearer " + token
+                );
+            }
 
             const response =
                 await fetch(
                     "/me",
                     {
+                        headers: headers,
                         credentials:
                             "same-origin"
                     }
                 );
 
-
             if (
                 !response.ok
             ) {
-
                 updateNavigation(
                     null
                 );
@@ -1508,20 +1592,16 @@
                 return null;
             }
 
-
             const user =
                 await response.json();
-
 
             updateNavigation(
                 user
             );
 
-
             return user;
 
         } catch {
-
             updateNavigation(
                 null
             );
@@ -1531,28 +1611,22 @@
     }
 
 
-
     async function logoutUser() {
-
         try {
-
             const response =
                 await fetch(
                     "/logout",
                     {
                         method:
                             "POST",
-
                         credentials:
                             "same-origin"
                     }
                 );
 
-
             if (
                 !response.ok
             ) {
-
                 throw new Error(
                     await getApiError(
                         response
@@ -1560,12 +1634,14 @@
                 );
             }
 
+            sessionStorage.removeItem(
+                "campus_session_token"
+            );
 
             window.location.href =
                 "/";
 
         } catch (error) {
-
             showToast(
                 error.message,
                 "error"
@@ -1574,22 +1650,18 @@
     }
 
 
-
     document.addEventListener(
         "DOMContentLoaded",
         () => {
-
             const logoutButton =
                 document.getElementById(
                     "logout-button"
                 );
 
-
             logoutButton.addEventListener(
                 "click",
                 logoutUser
             );
-
 
             refreshNavigation();
         }

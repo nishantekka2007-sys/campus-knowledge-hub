@@ -536,7 +536,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         if (
             currentUser &&
-            currentUser.role === "admin"
+            (
+                currentUser.role === "admin" ||
+                Number(resource.created_by) === Number(currentUser.id)
+            )
         ) {
 
             actions += `

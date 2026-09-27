@@ -42,6 +42,70 @@ Admin Dashboard · Campus Knowledge Hub
     hidden
 >
 
+    <div
+        id="admin-stats"
+        style="
+            display:grid;
+            grid-template-columns:
+                repeat(
+                    auto-fit,
+                    minmax(180px, 1fr)
+                );
+            gap:16px;
+            margin-bottom:24px;
+        "
+    >
+
+        <div class="card panel">
+            <p class="muted">
+                Total Users
+            </p>
+            <h2
+                id="stat-users"
+                style="margin:0;"
+            >
+                —
+            </h2>
+        </div>
+
+        <div class="card panel">
+            <p class="muted">
+                Total Resources
+            </p>
+            <h2
+                id="stat-resources"
+                style="margin:0;"
+            >
+                —
+            </h2>
+        </div>
+
+        <div class="card panel">
+            <p class="muted">
+                Resources with PDFs
+            </p>
+            <h2
+                id="stat-pdfs"
+                style="margin:0;"
+            >
+                —
+            </h2>
+        </div>
+
+        <div class="card panel">
+            <p class="muted">
+                Total Favorites
+            </p>
+            <h2
+                id="stat-favorites"
+                style="margin:0;"
+            >
+                —
+            </h2>
+        </div>
+
+    </div>
+
 
     <div class="card panel">
 
@@ -213,6 +277,52 @@ document.addEventListener(
             "admin-content"
         ).hidden = false;
 
+
+
+        /*
+         * Load admin dashboard statistics.
+         */
+
+        async function loadStats() {
+            try {
+                const response = await fetch(
+                    "/admin/stats",
+                    {
+                        credentials: "same-origin"
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error(
+                        "Failed to load dashboard statistics."
+                    );
+                }
+
+                const stats = await response.json();
+
+                document.getElementById(
+                    "stat-users"
+                ).textContent = stats.total_users;
+
+                document.getElementById(
+                    "stat-resources"
+                ).textContent = stats.total_resources;
+
+                document.getElementById(
+                    "stat-pdfs"
+                ).textContent = stats.resources_with_pdfs;
+
+                document.getElementById(
+                    "stat-favorites"
+                ).textContent = stats.total_favorites;
+
+            } catch (error) {
+                console.error(
+                    "Failed to load admin statistics:",
+                    error
+                );
+            }
+        }
 
 
         /*
@@ -631,6 +741,7 @@ document.addEventListener(
          * Initial load.
          */
 
+        await loadStats();
         await loadUsers();
 
     }

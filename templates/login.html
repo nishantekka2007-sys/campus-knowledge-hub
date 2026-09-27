@@ -4,101 +4,136 @@
 Log in · Campus Knowledge Hub
 {% endblock %}
 
-
 {% block content %}
 
-<section class="auth-card card">
+<section class="auth-layout">
 
-    <div class="eyebrow">
-        Secure access
-    </div>
+    <div class="panel auth-visual reveal">
 
+        <div>
+            <div class="eyebrow">
+                Welcome back
+            </div>
 
-    <h1>
-        Welcome back
-    </h1>
+            <h2>
+                Your campus,<br>
+                in one flow.
+            </h2>
 
+            <p>
+                Pick up where you left off.
+                Search resources, save your favorites
+                and keep your learning space organized.
+            </p>
+        </div>
 
-    <p>
-        Sign in to manage your resources,
-        favorites and account.
-    </p>
+        <div class="auth-quote">
 
+            <div>
+                <small>Fast access</small>
+                <strong>Notes →</strong>
+            </div>
 
-    <div
-        id="registered-message"
-        class="card panel"
-        style="margin-bottom:16px;"
-        hidden
-    >
-        Account created successfully.
-        You can log in now.
-    </div>
-
-
-    <form id="login-form">
-
-
-        <div class="field">
-
-            <label for="username">
-                Username
-            </label>
-
-            <input
-                id="username"
-                name="username"
-                type="text"
-                minlength="3"
-                maxlength="30"
-                autocomplete="username"
-                placeholder="Enter your username"
-                required
-            >
+            <div>
+                <small>Personal space</small>
+                <strong>Favorites →</strong>
+            </div>
 
         </div>
 
+    </div>
 
-        <div class="field">
 
-            <label for="password">
-                Password
-            </label>
+    <div class="panel auth-card reveal delay-1">
 
-            <input
-                id="password"
-                name="password"
-                type="password"
-                minlength="8"
-                maxlength="128"
-                autocomplete="current-password"
-                placeholder="Enter your password"
-                required
-            >
-
+        <div class="eyebrow">
+            Secure access
         </div>
 
-
-        <button
-            id="login-button"
-            class="button button-primary"
-            type="submit"
-            style="width:100%;"
-        >
+        <h1>
             Log in
-        </button>
+        </h1>
+
+        <p>
+            Enter your Campus Knowledge Hub credentials.
+        </p>
+
+        <div
+            id="registered-message"
+            class="success-note"
+            hidden
+        >
+            Account created successfully.
+            You can log in now.
+        </div>
 
 
-    </form>
+        <form id="login-form">
+
+            <div class="field">
+
+                <label for="username">
+                    Username
+                </label>
+
+                <input
+                    id="username"
+                    name="username"
+                    type="text"
+                    minlength="3"
+                    maxlength="30"
+                    autocomplete="username"
+                    placeholder="Your username"
+                    required
+                >
+
+            </div>
 
 
-    <div class="auth-footer">
+            <div
+                class="field"
+                style="margin-top:14px;"
+            >
 
-        Don't have an account?
+                <label for="password">
+                    Password
+                </label>
 
-        <a href="/register">
-            Create one
-        </a>
+                <input
+                    id="password"
+                    name="password"
+                    type="password"
+                    minlength="8"
+                    maxlength="128"
+                    autocomplete="current-password"
+                    placeholder="Your password"
+                    required
+                >
+
+            </div>
+
+
+            <button
+                id="login-button"
+                class="button button-primary"
+                style="width:100%;margin-top:5px;"
+                type="submit"
+            >
+                Log in
+                <span aria-hidden="true">
+                    ↗
+                </span>
+            </button>
+
+        </form>
+
+
+        <div class="auth-footer">
+            New here?
+            <a href="/register">
+                Create your account
+            </a>
+        </div>
 
     </div>
 
@@ -107,43 +142,17 @@ Log in · Campus Knowledge Hub
 {% endblock %}
 
 
-
 {% block scripts %}
 
 <script>
 
 document.addEventListener(
     "DOMContentLoaded",
-    async function () {
-
-
-        /*
-         * Check whether the user
-         * is already logged in.
-         */
-
-        const existingUser =
-            await refreshNavigation();
-
-
-        if (existingUser) {
-
-            window.location.href =
-                "/";
-
-            return;
-        }
-
-
-
-        /*
-         * Show registration success
-         * message after redirect.
-         */
+    () => {
 
         const params =
             new URLSearchParams(
-                window.location.search
+                location.search
             );
 
 
@@ -156,46 +165,30 @@ document.addEventListener(
             document.getElementById(
                 "registered-message"
             ).hidden = false;
+
         }
 
 
-
-        /*
-         * Determine where the user
-         * should go after login.
-         */
-
         let next =
-            params.get(
-                "next"
-            ) || "/";
+            params.get("next")
+            || "/";
 
-
-        /*
-         * Prevent external redirects.
-         */
 
         if (
-            !next.startsWith("/") ||
-            next.startsWith("//")
+            !next.startsWith("/")
+            || next.startsWith("//")
         ) {
 
             next = "/";
+
         }
 
 
-
-        /*
-         * Login form.
-         */
-
         document
-            .getElementById(
-                "login-form"
-            )
+            .getElementById("login-form")
             .addEventListener(
                 "submit",
-                async function (event) {
+                async event => {
 
                     event.preventDefault();
 
@@ -206,29 +199,13 @@ document.addEventListener(
                         );
 
 
-                    const username =
-                        document.getElementById(
-                            "username"
-                        )
-                        .value
-                        .trim();
-
-
-                    const password =
-                        document.getElementById(
-                            "password"
-                        )
-                        .value;
-
-
                     button.disabled = true;
 
                     button.textContent =
-                        "Signing in...";
+                        "Signing in…";
 
 
                     try {
-
 
                         const response =
                             await fetch(
@@ -237,69 +214,114 @@ document.addEventListener(
                                     method:
                                         "POST",
 
-                                    credentials:
-                                        "same-origin",
-
                                     headers: {
                                         "Content-Type":
                                             "application/json"
                                     },
 
+                                    credentials:
+                                        "same-origin",
+
                                     body:
-                                        JSON.stringify({
+                                        JSON.stringify(
+                                            {
+                                                username:
+                                                    document
+                                                        .getElementById(
+                                                            "username"
+                                                        )
+                                                        .value
+                                                        .trim(),
 
-                                            username:
-                                                username,
-
-                                            password:
-                                                password
-                                        })
+                                                password:
+                                                    document
+                                                        .getElementById(
+                                                            "password"
+                                                        )
+                                                        .value
+                                            }
+                                        )
                                 }
                             );
 
 
-                        if (
-                            !response.ok
-                        ) {
+                        if (!response.ok) {
 
                             throw new Error(
                                 await getApiError(
                                     response
                                 )
                             );
+
+                        }
+
+
+                        const data =
+                            await response.json();
+
+
+                        if (
+                            !data.session_token
+                        ) {
+
+                            throw new Error(
+                                "Login succeeded but no session token was received."
+                            );
+
                         }
 
 
                         /*
-                         * Backend sets the
-                         * HTTP-only session cookie.
+                         * Store the session token in
+                         * sessionStorage.
+                         *
+                         * sessionStorage is separate
+                         * for each browser tab.
+                         *
+                         * This is what gives each tab
+                         * its own login session.
                          */
+                        sessionStorage.setItem(
+                            "campus_session_token",
+                            data.session_token
+                        );
 
-                        window.location.href =
-                            next;
 
+                        showToast(
+                            "Welcome back.",
+                            "success"
+                        );
+
+
+                        window.setTimeout(
+                            () => {
+                                window.location.href =
+                                    next;
+                            },
+                            250
+                        );
 
                     } catch (error) {
 
                         showToast(
-                            error.message ||
-                            "Unable to log in.",
+                            error.message,
                             "error"
                         );
 
+                    } finally {
 
                         button.disabled =
                             false;
 
                         button.textContent =
-                            "Log in";
+                            "Log in ↗";
+
                     }
 
                 }
             );
 
     }
-
 );
 
 </script>

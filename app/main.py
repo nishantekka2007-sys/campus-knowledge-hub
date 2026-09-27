@@ -593,9 +593,27 @@ def create_session(
 def get_current_user(
     request: Request,
 ):
-    token = request.cookies.get(
-        "session_token"
+    authorization = request.headers.get(
+        "Authorization"
     )
+
+    token = None
+
+    if authorization:
+        scheme, _, header_token = (
+            authorization.partition(" ")
+        )
+
+        if (
+            scheme.lower() == "bearer"
+            and header_token
+        ):
+            token = header_token.strip()
+
+    if not token:
+        token = request.cookies.get(
+            "session_token"
+        )
 
     if not token:
         raise HTTPException(
@@ -1394,6 +1412,7 @@ def login_user(
             "message": "Login successful",
             "username": user["username"],
             "role": user["role"],
+            "session_token": token,
         }
     )
 
