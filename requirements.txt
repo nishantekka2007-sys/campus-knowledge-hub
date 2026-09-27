@@ -5,6 +5,6 @@ uvicorn
 jinja2
 
 
-httpx2
+httpx
 
 python-multipart
