@@ -1,54 +1,642 @@
 {% extends "base.html" %}
-{% block title %}Admin · Campus Knowledge Hub{% endblock %}
-{% block content %}
-<section id="admin-loading" class="panel panel-pad reveal"><div class="eyebrow">Control room</div><h1 style="margin:10px 0 0;font-size:clamp(2.6rem,7vw,6rem);line-height:.9;letter-spacing:-.08em;">Checking access…</h1></section>
-<section id="admin-content" hidden>
-    <div class="section-head reveal"><div><div class="eyebrow">Administration</div><h1 style="margin:10px 0 0;font-size:clamp(2.8rem,7vw,6rem);line-height:.9;letter-spacing:-.08em;">Control room.</h1><p>Manage users and keep platform roles organized.</p></div><button id="refresh-users" class="button button-ghost button-small" type="button">Refresh users ↻</button></div>
-    <div class="admin-grid reveal delay-1" style="margin-top:18px;">
-        <div class="admin-stat"><small>Users</small><strong id="stat-users">—</strong></div>
-        <div class="admin-stat"><small>Students</small><strong id="stat-students">—</strong></div>
-        <div class="admin-stat"><small>Admins</small><strong id="stat-admins">—</strong></div>
-        <div class="admin-stat"><small>Resources</small><strong id="stat-resources">—</strong></div>
-    </div>
-    <div class="panel panel-pad section reveal delay-2">
-        <div class="section-head"><div><div class="eyebrow">People</div><h2>User management</h2><p id="users-summary">Loading users…</p></div></div>
-        <div class="table-wrap"><table><thead><tr><th>ID</th><th>Username</th><th>Role</th><th>Created</th><th>State</th></tr></thead><tbody id="users-body"></tbody></table></div>
-    </div>
-</section>
+
+{% block title %}
+Admin Dashboard · Campus Knowledge Hub
 {% endblock %}
+
+
+{% block content %}
+
+<section class="hero">
+
+    <div class="eyebrow">
+        Administration
+    </div>
+
+
+    <h1>
+        Admin dashboard
+    </h1>
+
+
+    <p>
+        Manage registered users and control
+        their platform roles.
+    </p>
+
+</section>
+
+
+
+<section
+    id="admin-loading"
+    class="card panel"
+>
+    Checking administrator access...
+</section>
+
+
+
+<section
+    id="admin-content"
+    hidden
+>
+
+
+    <div class="card panel">
+
+
+        <div
+            style="
+                display:flex;
+                justify-content:space-between;
+                align-items:center;
+                gap:15px;
+                flex-wrap:wrap;
+            "
+        >
+
+            <div>
+
+                <h2
+                    style="margin:0 0 4px;"
+                >
+                    User management
+                </h2>
+
+
+                <p
+                    class="muted"
+                    style="margin:0;"
+                >
+                    Change user roles from one place.
+                </p>
+
+            </div>
+
+
+            <button
+                id="refresh-users"
+                class="button button-ghost"
+                type="button"
+            >
+                Refresh
+            </button>
+
+        </div>
+
+
+
+        <p
+            id="users-summary"
+            class="muted"
+            style="margin-top:18px;"
+        >
+            Loading users...
+        </p>
+
+
+
+        <div class="table-wrap">
+
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>
+                            ID
+                        </th>
+
+                        <th>
+                            Username
+                        </th>
+
+                        <th>
+                            Role
+                        </th>
+
+                        <th>
+                            Created
+                        </th>
+
+                        <th>
+                            Action
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody
+                    id="users-body"
+                ></tbody>
+
+            </table>
+
+        </div>
+
+
+    </div>
+
+
+</section>
+
+{% endblock %}
+
+
+
 {% block scripts %}
+
 <script>
-document.addEventListener("DOMContentLoaded",async()=>{
-    const currentUser=await refreshNavigation();
-    if(!currentUser){window.location.href="/login?next=/admin";return;}
-    if(currentUser.role!=="admin"){window.location.href="/";return;}
-    document.getElementById("admin-loading").hidden=true; document.getElementById("admin-content").hidden=false;
-    async function loadUsers(){
-        const body=document.getElementById("users-body"); const summary=document.getElementById("users-summary"); summary.textContent="Loading users…"; body.innerHTML="";
-        try{
-            const [usersResponse,resourcesResponse]=await Promise.all([fetch("/users",{credentials:"same-origin"}),fetch("/resources?limit=100",{credentials:"same-origin"})]);
-            if(!usersResponse.ok) throw new Error(await getApiError(usersResponse));
-            if(!resourcesResponse.ok) throw new Error(await getApiError(resourcesResponse));
-            const users=await usersResponse.json(); const resources=await resourcesResponse.json();
-            const students=users.filter(user=>user.role==="student").length; const admins=users.filter(user=>user.role==="admin").length;
-            document.getElementById("stat-users").textContent=users.length; document.getElementById("stat-students").textContent=students; document.getElementById("stat-admins").textContent=admins; document.getElementById("stat-resources").textContent=Number(resourcesResponse.headers.get("X-Total")||resources.length);
-            summary.textContent=`${users.length} account${users.length===1?"":"s"} registered`;
-            users.forEach(user=>{
-                const row=document.createElement("tr"); const date=new Date(user.created_at); const mine=Number(user.id)===Number(currentUser.id);
-                row.innerHTML=`<td>#${user.id}</td><td><strong>${escapeHtml(user.username)}</strong>${mine?`<div class="muted" style="font-size:.7rem;">You</div>`:""}</td><td><select data-role-id="${user.id}" ${mine?"disabled":""}><option value="student">Student</option><option value="admin">Admin</option></select></td><td>${Number.isNaN(date.getTime())?"Unknown":date.toLocaleDateString(undefined,{day:"2-digit",month:"short",year:"numeric"})}</td><td><span class="mini-pill">${mine?"Protected":"Editable"}</span></td>`;
-                row.querySelector("select").value=user.role; body.appendChild(row);
-            });
-        }catch(error){summary.textContent=error.message;showToast(error.message,"error");}
+
+document.addEventListener(
+    "DOMContentLoaded",
+    async function () {
+
+
+        /*
+         * Check current session.
+         */
+
+        const currentUser =
+            await refreshNavigation();
+
+
+
+        /*
+         * Admin page requires
+         * an authenticated user.
+         */
+
+        if (!currentUser) {
+
+            window.location.href =
+                "/login?next=/admin";
+
+            return;
+        }
+
+
+
+        /*
+         * Only administrators
+         * can access this page.
+         */
+
+        if (
+            currentUser.role !==
+            "admin"
+        ) {
+
+            window.location.href =
+                "/";
+
+            return;
+        }
+
+
+
+        /*
+         * Show dashboard.
+         */
+
+        document.getElementById(
+            "admin-loading"
+        ).hidden = true;
+
+
+        document.getElementById(
+            "admin-content"
+        ).hidden = false;
+
+
+
+        /*
+         * Load users from backend.
+         */
+
+        async function loadUsers() {
+
+
+            const body =
+                document.getElementById(
+                    "users-body"
+                );
+
+
+            const summary =
+                document.getElementById(
+                    "users-summary"
+                );
+
+
+            body.innerHTML = "";
+
+
+            summary.textContent =
+                "Loading users...";
+
+
+            try {
+
+
+                const response =
+                    await fetch(
+                        "/users",
+                        {
+                            credentials:
+                                "same-origin"
+                        }
+                    );
+
+
+                if (
+                    !response.ok
+                ) {
+
+                    throw new Error(
+                        await getApiError(
+                            response
+                        )
+                    );
+                }
+
+
+                const users =
+                    await response.json();
+
+
+                if (
+                    users.length === 0
+                ) {
+
+                    summary.textContent =
+                        "No users registered.";
+
+                    return;
+                }
+
+
+                summary.textContent =
+                    `${users.length} user(s)`;
+
+
+
+                /*
+                 * Create table rows.
+                 */
+
+                users.forEach(
+                    user => {
+
+
+                        const row =
+                            document.createElement(
+                                "tr"
+                            );
+
+
+                        const isCurrentUser =
+                            Number(user.id) ===
+                            Number(currentUser.id);
+
+
+
+                        /*
+                         * ID
+                         */
+
+                        const idCell =
+                            document.createElement(
+                                "td"
+                            );
+
+                        idCell.textContent =
+                            user.id;
+
+
+
+                        /*
+                         * Username
+                         */
+
+                        const usernameCell =
+                            document.createElement(
+                                "td"
+                            );
+
+                        const usernameStrong =
+                            document.createElement(
+                                "strong"
+                            );
+
+                        usernameStrong.textContent =
+                            user.username;
+
+                        usernameCell.appendChild(
+                            usernameStrong
+                        );
+
+
+
+                        /*
+                         * Role selector
+                         */
+
+                        const roleCell =
+                            document.createElement(
+                                "td"
+                            );
+
+
+                        const roleSelect =
+                            document.createElement(
+                                "select"
+                            );
+
+
+                        roleSelect.dataset.roleId =
+                            user.id;
+
+
+                        roleSelect.innerHTML = `
+                            <option value="student">
+                                Student
+                            </option>
+
+                            <option value="admin">
+                                Admin
+                            </option>
+                        `;
+
+
+                        roleSelect.value =
+                            user.role;
+
+
+                        roleSelect.disabled =
+                            isCurrentUser;
+
+
+                        roleCell.appendChild(
+                            roleSelect
+                        );
+
+
+
+                        /*
+                         * Created date
+                         */
+
+                        const createdCell =
+                            document.createElement(
+                                "td"
+                            );
+
+
+                        const createdDate =
+                            new Date(
+                                user.created_at
+                            );
+
+
+                        createdCell.textContent =
+                            Number.isNaN(
+                                createdDate.getTime()
+                            )
+                            ?
+                            "Unknown"
+                            :
+                            createdDate.toLocaleDateString();
+
+
+
+                        /*
+                         * Action
+                         */
+
+                        const actionCell =
+                            document.createElement(
+                                "td"
+                            );
+
+
+                        if (
+                            isCurrentUser
+                        ) {
+
+                            const label =
+                                document.createElement(
+                                    "span"
+                                );
+
+
+                            label.className =
+                                "muted";
+
+
+                            label.textContent =
+                                "Current account";
+
+
+                            actionCell.appendChild(
+                                label
+                            );
+
+
+                        } else {
+
+
+                            const saveButton =
+                                document.createElement(
+                                    "button"
+                                );
+
+
+                            saveButton.className =
+                                "button button-small button-primary";
+
+
+                            saveButton.type =
+                                "button";
+
+
+                            saveButton.textContent =
+                                "Save";
+
+
+                            saveButton.dataset.userId =
+                                user.id;
+
+
+
+                            saveButton.addEventListener(
+                                "click",
+                                async function () {
+
+
+                                    const originalText =
+                                        saveButton.textContent;
+
+
+                                    saveButton.disabled =
+                                        true;
+
+
+                                    saveButton.textContent =
+                                        "Saving...";
+
+
+                                    try {
+
+
+                                        const updateResponse =
+                                            await fetch(
+                                                `/users/${user.id}/role`,
+                                                {
+                                                    method:
+                                                        "PATCH",
+
+                                                    credentials:
+                                                        "same-origin",
+
+                                                    headers: {
+                                                        "Content-Type":
+                                                            "application/json"
+                                                    },
+
+                                                    body:
+                                                        JSON.stringify({
+                                                            role:
+                                                                roleSelect.value
+                                                        })
+                                                }
+                                            );
+
+
+                                        if (
+                                            !updateResponse.ok
+                                        ) {
+
+                                            throw new Error(
+                                                await getApiError(
+                                                    updateResponse
+                                                )
+                                            );
+                                        }
+
+
+                                        showToast(
+                                            "User role updated successfully.",
+                                            "success"
+                                        );
+
+
+                                        await loadUsers();
+
+
+                                    } catch (error) {
+
+
+                                        showToast(
+                                            error.message,
+                                            "error"
+                                        );
+
+
+                                        saveButton.disabled =
+                                            false;
+
+
+                                        saveButton.textContent =
+                                            originalText;
+                                    }
+
+                                }
+                            );
+
+
+                            actionCell.appendChild(
+                                saveButton
+                            );
+                        }
+
+
+
+                        row.appendChild(
+                            idCell
+                        );
+
+                        row.appendChild(
+                            usernameCell
+                        );
+
+                        row.appendChild(
+                            roleCell
+                        );
+
+                        row.appendChild(
+                            createdCell
+                        );
+
+                        row.appendChild(
+                            actionCell
+                        );
+
+
+                        body.appendChild(
+                            row
+                        );
+
+                    }
+                );
+
+
+            } catch (error) {
+
+
+                summary.textContent =
+                    "Unable to load users.";
+
+
+                showToast(
+                    error.message,
+                    "error"
+                );
+            }
+        }
+
+
+
+        /*
+         * Refresh button.
+         */
+
+        document
+            .getElementById(
+                "refresh-users"
+            )
+            .addEventListener(
+                "click",
+                loadUsers
+            );
+
+
+
+        /*
+         * Initial load.
+         */
+
+        await loadUsers();
+
     }
-    document.getElementById("users-body").addEventListener("change",async event=>{
-        const select=event.target.closest("[data-role-id]"); if(!select)return; const id=select.dataset.roleId; const role=select.value; select.disabled=true;
-        try{
-            const response=await fetch(`/users/${id}/role`,{method:"PATCH",headers:{"Content-Type":"application/json"},credentials:"same-origin",body:JSON.stringify({role})});
-            if(!response.ok) throw new Error(await getApiError(response)); showToast("User role updated.","success");
-        }catch(error){showToast(error.message,"error");await loadUsers();}
-        finally{select.disabled=Number(id)===Number(currentUser.id);}
-    });
-    document.getElementById("refresh-users").addEventListener("click",loadUsers); await loadUsers();
-});
+
+);
+
 </script>
+
 {% endblock %}
